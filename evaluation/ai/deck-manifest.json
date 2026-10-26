@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "decks": [
+    {
+      "id": "world-shaper",
+      "file": "decks/world-shaper.dck",
+      "commander": "Hearthhull, the Worldseed",
+      "total_cards": 100,
+      "main_cards": 99,
+      "commander_cards": 1,
+      "upstream_repository": "https://github.com/Card-Forge/forge",
+      "upstream_commit": "e5a0f8156da70ffc7866f923bed371c0111707cd",
+      "upstream_path": "forge-gui/res/quest/commanderprecons/World Shaper [EOC] [2025].dck",
+      "official_decklist": "https://magic.wizards.com/en/news/announcements/edge-of-eternities-commander-decklists",
+      "sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+      "byte_identical_to_upstream": true,
+      "engine_load_verified": false,
+      "ai_quality_verified": false
+    },
+    {
+      "id": "multiverse-reforged",
+      "file": "decks/multiverse-reforged.dck",
+      "commander": "Jace, Multiverse Architect",
+      "total_cards": 100,
+      "main_cards": 99,
+      "commander_cards": 1,
+      "upstream_repository": "https://github.com/Card-Forge/forge",
+      "upstream_commit": "e5a0f8156da70ffc7866f923bed371c0111707cd",
+      "upstream_path": "forge-gui/res/quest/commanderprecons/Multiverse Reforged [FRC] [2026].dck",
+      "official_decklist": "https://magic.wizards.com/en/news/announcements/reality-fracture-multiverse-reforged-commander-decklist",
+      "sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788",
+      "byte_identical_to_upstream": true,
+      "engine_load_verified": false,
+      "ai_quality_verified": false
+    }
+  ]
+}

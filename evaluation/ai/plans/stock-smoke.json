@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "engine_commit": "ba236861d3957005bb04f53e7722f2ea278e5872",
+  "deck_manifest": "evaluation/ai/deck-manifest.json",
+  "deck_ids": ["world-shaper", "multiverse-reforged"],
+  "seeds": [11025],
+  "matchups": "unordered-including-mirrors",
+  "seat_orders": "both",
+  "ai": { "profile": "Default", "monte_carlo": "desktop-max", "timeout_seconds": 5 },
+  "game_wall_seconds": 120,
+  "startup_wall_seconds": 180
+}

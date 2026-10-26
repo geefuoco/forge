@@ -1,0 +1,1165 @@
+{
+  "schema_version": 1,
+  "collected_at": "2026-10-26T19:55:30.660201+00:00",
+  "scope": "Fresh execution evidence after restoring lost uncommitted cloud changes. Completion is not an AI-quality verdict.",
+  "run_directory": ".audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946",
+  "request": {
+    "schema_version": 1,
+    "plan_path": "evaluation/ai/plans/stock-smoke.json",
+    "plan_sha256": "c17c9a8aba630f5f5df3f0cff5e66945cf086fca3049cc5d5b8f8e76e1f5f7f7",
+    "manifest_sha256": "b5e1862e1fbd038d5f5a53b3656bd78d16dfb60eefd262b22359130a7c3fe2a5",
+    "engine_commit": "ba236861d3957005bb04f53e7722f2ea278e5872",
+    "ai": {
+      "profile": "Default",
+      "monte_carlo": "desktop-max",
+      "timeout_seconds": 5
+    },
+    "game_wall_seconds": 120,
+    "startup_wall_seconds": 180,
+    "jobs": [
+      {
+        "id": "game-001",
+        "seats": [
+          "world-shaper",
+          "world-shaper"
+        ],
+        "seed": 11025
+      },
+      {
+        "id": "game-002",
+        "seats": [
+          "world-shaper",
+          "world-shaper"
+        ],
+        "seed": 11025
+      },
+      {
+        "id": "game-003",
+        "seats": [
+          "world-shaper",
+          "multiverse-reforged"
+        ],
+        "seed": 11025
+      },
+      {
+        "id": "game-004",
+        "seats": [
+          "multiverse-reforged",
+          "world-shaper"
+        ],
+        "seed": 11025
+      },
+      {
+        "id": "game-005",
+        "seats": [
+          "multiverse-reforged",
+          "multiverse-reforged"
+        ],
+        "seed": 11025
+      },
+      {
+        "id": "game-006",
+        "seats": [
+          "multiverse-reforged",
+          "multiverse-reforged"
+        ],
+        "seed": 11025
+      }
+    ]
+  },
+  "provenance": {
+    "engine": {
+      "engine_baseline": "ba236861d3957005bb04f53e7722f2ea278e5872",
+      "actual_head": "c4e4610809b8c0fc50f07e3b01d8d031217200aa",
+      "input_trees": {
+        ".mvn": "5de876cf35211941ac62ee4a0ae919c57eb38982",
+        "forge-core": "88de89b4069d80eebfc8c9639d47f464c38f4744",
+        "forge-game": "776fb8fa6497022979afb55b3e4a2973ee4445e5",
+        "forge-ai": "5c48cb727d8d69d47f21101a30590e483977c2e3",
+        "forge-gui": "7fadb65162553014bddb26de1722f18b868906cb",
+        "forge-gui-desktop": "5faf7aa46d3578cb25e796ff50134112cce1edb9",
+        "pom.xml": "dfc5de856471e28727e38589f347a6ed84ca0b3f"
+      },
+      "workspace_changes": [
+        ".gitattributes",
+        "docs/neo-forge/ai-runner-design.md",
+        "docs/neo-forge/development.md",
+        "docs/neo-forge/issues.md",
+        "docs/neo-forge/v1-specification.md",
+        "evaluation/ai/decks/world-shaper.dck",
+        "scripts/neo-forge.mjs",
+        "scripts/neo-forge.test.mjs",
+        "scripts/setup-forge-cloud.sh"
+      ]
+    },
+    "build": {
+      "schema_version": 1,
+      "engine_baseline": "ba236861d3957005bb04f53e7722f2ea278e5872",
+      "actual_head": "c4e4610809b8c0fc50f07e3b01d8d031217200aa",
+      "input_trees": {
+        ".mvn": "5de876cf35211941ac62ee4a0ae919c57eb38982",
+        "forge-core": "88de89b4069d80eebfc8c9639d47f464c38f4744",
+        "forge-game": "776fb8fa6497022979afb55b3e4a2973ee4445e5",
+        "forge-ai": "5c48cb727d8d69d47f21101a30590e483977c2e3",
+        "forge-gui": "7fadb65162553014bddb26de1722f18b868906cb",
+        "forge-gui-desktop": "5faf7aa46d3578cb25e796ff50134112cce1edb9",
+        "pom.xml": "dfc5de856471e28727e38589f347a6ed84ca0b3f"
+      },
+      "workspace_changes": [
+        ".gitattributes",
+        "docs/neo-forge/ai-runner-design.md",
+        "docs/neo-forge/development.md",
+        "docs/neo-forge/issues.md",
+        "docs/neo-forge/v1-specification.md",
+        "evaluation/ai/decks/world-shaper.dck",
+        "scripts/neo-forge.mjs",
+        "scripts/neo-forge.test.mjs",
+        "scripts/setup-forge-cloud.sh"
+      ],
+      "java_version": "openjdk version \"21.0.12.1\" 2026-08-18",
+      "maven_version": "Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)",
+      "build_command": [
+        "java",
+        "-classpath",
+        "/workspace/.tools/apache-maven-3.9.11/boot/plexus-classworlds-2.9.0.jar",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/forge",
+        "-Dmaven.repo.local=/workspace/forge/.tools/m2",
+        "-Dclassworlds.conf=/workspace/.tools/apache-maven-3.9.11/bin/m2.conf",
+        "-Dmaven.home=/workspace/.tools/apache-maven-3.9.11",
+        "org.codehaus.plexus.classworlds.launcher.Launcher",
+        "-s",
+        "/workspace/.tools/maven-settings.xml",
+        "-f",
+        "pom.xml",
+        "-pl",
+        "forge-gui-desktop",
+        "-am",
+        "clean",
+        "package",
+        "-DskipTests"
+      ],
+      "jar": "forge-gui-desktop/target/forge-gui-desktop-2.0.16-SNAPSHOT-jar-with-dependencies.jar",
+      "jar_sha256": "30719336b1254c10f6a02806807cad59740f59e48e6627ff4ad8a9c4f4999eb0",
+      "runner_source_sha256": "0f65aa27d05b7859afe83735c2fcb6f0d8a1c9dc6ffc928c46e1d4e19d98deb9",
+      "runner_classes_sha256": {
+        "CommanderEval$1.class": "7fe3761b3d7d77c59bd4b01833c9fd1d0c7f878e8b2c3daadfe4161f8e2c7e67",
+        "CommanderEval$2.class": "a8b24e649bc5c91edeee7b606d8ea9629a00992af5fc49649eb3af3c4474cc16",
+        "CommanderEval$3.class": "d0055098a3413a3e0c0d9f56628bfc7ad6a78c4fa3273d5cf71348aea488193d",
+        "CommanderEval$GameRequest.class": "aa2fc34259ad9a95496110729ec64984c0c459559d669086824b62aa81317db7",
+        "CommanderEval$RejectedInputException.class": "b3683b2c729478fe0bbf89f34d0b6cd06a8f7c837c765a633c045ebbe279a92c",
+        "CommanderEval$Seat.class": "f21184041a7391c43eac2515f703cbf1b825da8aab94a568ebea4f71eae3501d",
+        "CommanderEval.class": "58273db4e25572b5599acbc58224867e8b71d32d3e517633ad1234bd56b38db9"
+      },
+      "harness_sha256": {
+        "node": "14bae185eba498f6feab7de24685961f3bb30d670f12e7b7864035d5fd54f98f",
+        "node_tests": "ca08c1676682001bc0680c4df5a371a212da0e206543e223d74d0325cbf2bf2f",
+        "java": "0f65aa27d05b7859afe83735c2fcb6f0d8a1c9dc6ffc928c46e1d4e19d98deb9",
+        "plan": "c17c9a8aba630f5f5df3f0cff5e66945cf086fca3049cc5d5b8f8e76e1f5f7f7",
+        "manifest": "b5e1862e1fbd038d5f5a53b3656bd78d16dfb60eefd262b22359130a7c3fe2a5"
+      },
+      "built_at": "2026-10-26T19:49:09.221Z"
+    },
+    "harness_sha256": {
+      "node": "14bae185eba498f6feab7de24685961f3bb30d670f12e7b7864035d5fd54f98f",
+      "node_tests": "ca08c1676682001bc0680c4df5a371a212da0e206543e223d74d0325cbf2bf2f",
+      "java": "0f65aa27d05b7859afe83735c2fcb6f0d8a1c9dc6ffc928c46e1d4e19d98deb9",
+      "plan": "c17c9a8aba630f5f5df3f0cff5e66945cf086fca3049cc5d5b8f8e76e1f5f7f7",
+      "manifest": "b5e1862e1fbd038d5f5a53b3656bd78d16dfb60eefd262b22359130a7c3fe2a5"
+    },
+    "manifest_sha256": "b5e1862e1fbd038d5f5a53b3656bd78d16dfb60eefd262b22359130a7c3fe2a5",
+    "plan_sha256": "c17c9a8aba630f5f5df3f0cff5e66945cf086fca3049cc5d5b8f8e76e1f5f7f7",
+    "java_version": "openjdk version \"21.0.12.1\" 2026-08-18",
+    "maven_version": "Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)",
+    "resource_tree": "a7adc2aa80369060375e3f4d26d67e92b209adfb",
+    "ai": {
+      "profile": "Default",
+      "monte_carlo": "desktop-max",
+      "timeout_seconds": 5
+    }
+  },
+  "build": {
+    "schema_version": 1,
+    "engine_baseline": "ba236861d3957005bb04f53e7722f2ea278e5872",
+    "actual_head": "c4e4610809b8c0fc50f07e3b01d8d031217200aa",
+    "input_trees": {
+      ".mvn": "5de876cf35211941ac62ee4a0ae919c57eb38982",
+      "forge-core": "88de89b4069d80eebfc8c9639d47f464c38f4744",
+      "forge-game": "776fb8fa6497022979afb55b3e4a2973ee4445e5",
+      "forge-ai": "5c48cb727d8d69d47f21101a30590e483977c2e3",
+      "forge-gui": "7fadb65162553014bddb26de1722f18b868906cb",
+      "forge-gui-desktop": "5faf7aa46d3578cb25e796ff50134112cce1edb9",
+      "pom.xml": "dfc5de856471e28727e38589f347a6ed84ca0b3f"
+    },
+    "workspace_changes": [
+      ".gitattributes",
+      "docs/neo-forge/ai-runner-design.md",
+      "docs/neo-forge/development.md",
+      "docs/neo-forge/issues.md",
+      "docs/neo-forge/v1-specification.md",
+      "evaluation/ai/decks/world-shaper.dck",
+      "scripts/neo-forge.mjs",
+      "scripts/neo-forge.test.mjs",
+      "scripts/setup-forge-cloud.sh"
+    ],
+    "java_version": "openjdk version \"21.0.12.1\" 2026-08-18",
+    "maven_version": "Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)",
+    "build_command": [
+      "java",
+      "-classpath",
+      "/workspace/.tools/apache-maven-3.9.11/boot/plexus-classworlds-2.9.0.jar",
+      "-Dmaven.multiModuleProjectDirectory=/workspace/forge",
+      "-Dmaven.repo.local=/workspace/forge/.tools/m2",
+      "-Dclassworlds.conf=/workspace/.tools/apache-maven-3.9.11/bin/m2.conf",
+      "-Dmaven.home=/workspace/.tools/apache-maven-3.9.11",
+      "org.codehaus.plexus.classworlds.launcher.Launcher",
+      "-s",
+      "/workspace/.tools/maven-settings.xml",
+      "-f",
+      "pom.xml",
+      "-pl",
+      "forge-gui-desktop",
+      "-am",
+      "clean",
+      "package",
+      "-DskipTests"
+    ],
+    "jar": "forge-gui-desktop/target/forge-gui-desktop-2.0.16-SNAPSHOT-jar-with-dependencies.jar",
+    "jar_sha256": "30719336b1254c10f6a02806807cad59740f59e48e6627ff4ad8a9c4f4999eb0",
+    "runner_source_sha256": "0f65aa27d05b7859afe83735c2fcb6f0d8a1c9dc6ffc928c46e1d4e19d98deb9",
+    "runner_classes_sha256": {
+      "CommanderEval$1.class": "7fe3761b3d7d77c59bd4b01833c9fd1d0c7f878e8b2c3daadfe4161f8e2c7e67",
+      "CommanderEval$2.class": "a8b24e649bc5c91edeee7b606d8ea9629a00992af5fc49649eb3af3c4474cc16",
+      "CommanderEval$3.class": "d0055098a3413a3e0c0d9f56628bfc7ad6a78c4fa3273d5cf71348aea488193d",
+      "CommanderEval$GameRequest.class": "aa2fc34259ad9a95496110729ec64984c0c459559d669086824b62aa81317db7",
+      "CommanderEval$RejectedInputException.class": "b3683b2c729478fe0bbf89f34d0b6cd06a8f7c837c765a633c045ebbe279a92c",
+      "CommanderEval$Seat.class": "f21184041a7391c43eac2515f703cbf1b825da8aab94a568ebea4f71eae3501d",
+      "CommanderEval.class": "58273db4e25572b5599acbc58224867e8b71d32d3e517633ad1234bd56b38db9"
+    },
+    "harness_sha256": {
+      "node": "14bae185eba498f6feab7de24685961f3bb30d670f12e7b7864035d5fd54f98f",
+      "node_tests": "ca08c1676682001bc0680c4df5a371a212da0e206543e223d74d0325cbf2bf2f",
+      "java": "0f65aa27d05b7859afe83735c2fcb6f0d8a1c9dc6ffc928c46e1d4e19d98deb9",
+      "plan": "c17c9a8aba630f5f5df3f0cff5e66945cf086fca3049cc5d5b8f8e76e1f5f7f7",
+      "manifest": "b5e1862e1fbd038d5f5a53b3656bd78d16dfb60eefd262b22359130a7c3fe2a5"
+    },
+    "built_at": "2026-10-26T19:49:09.221Z"
+  },
+  "validation": {
+    "schema_version": 1,
+    "plan_sha256": "c17c9a8aba630f5f5df3f0cff5e66945cf086fca3049cc5d5b8f8e76e1f5f7f7",
+    "manifest_sha256": "b5e1862e1fbd038d5f5a53b3656bd78d16dfb60eefd262b22359130a7c3fe2a5",
+    "engine": {
+      "engine_baseline": "ba236861d3957005bb04f53e7722f2ea278e5872",
+      "actual_head": "c4e4610809b8c0fc50f07e3b01d8d031217200aa",
+      "input_trees": {
+        ".mvn": "5de876cf35211941ac62ee4a0ae919c57eb38982",
+        "forge-core": "88de89b4069d80eebfc8c9639d47f464c38f4744",
+        "forge-game": "776fb8fa6497022979afb55b3e4a2973ee4445e5",
+        "forge-ai": "5c48cb727d8d69d47f21101a30590e483977c2e3",
+        "forge-gui": "7fadb65162553014bddb26de1722f18b868906cb",
+        "forge-gui-desktop": "5faf7aa46d3578cb25e796ff50134112cce1edb9",
+        "pom.xml": "dfc5de856471e28727e38589f347a6ed84ca0b3f"
+      },
+      "workspace_changes": [
+        ".gitattributes",
+        "docs/neo-forge/ai-runner-design.md",
+        "docs/neo-forge/development.md",
+        "docs/neo-forge/issues.md",
+        "docs/neo-forge/v1-specification.md",
+        "evaluation/ai/decks/world-shaper.dck",
+        "scripts/neo-forge.mjs",
+        "scripts/neo-forge.test.mjs",
+        "scripts/setup-forge-cloud.sh"
+      ]
+    },
+    "build": {
+      "schema_version": 1,
+      "engine_baseline": "ba236861d3957005bb04f53e7722f2ea278e5872",
+      "actual_head": "c4e4610809b8c0fc50f07e3b01d8d031217200aa",
+      "input_trees": {
+        ".mvn": "5de876cf35211941ac62ee4a0ae919c57eb38982",
+        "forge-core": "88de89b4069d80eebfc8c9639d47f464c38f4744",
+        "forge-game": "776fb8fa6497022979afb55b3e4a2973ee4445e5",
+        "forge-ai": "5c48cb727d8d69d47f21101a30590e483977c2e3",
+        "forge-gui": "7fadb65162553014bddb26de1722f18b868906cb",
+        "forge-gui-desktop": "5faf7aa46d3578cb25e796ff50134112cce1edb9",
+        "pom.xml": "dfc5de856471e28727e38589f347a6ed84ca0b3f"
+      },
+      "workspace_changes": [
+        ".gitattributes",
+        "docs/neo-forge/ai-runner-design.md",
+        "docs/neo-forge/development.md",
+        "docs/neo-forge/issues.md",
+        "docs/neo-forge/v1-specification.md",
+        "evaluation/ai/decks/world-shaper.dck",
+        "scripts/neo-forge.mjs",
+        "scripts/neo-forge.test.mjs",
+        "scripts/setup-forge-cloud.sh"
+      ],
+      "java_version": "openjdk version \"21.0.12.1\" 2026-08-18",
+      "maven_version": "Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)",
+      "build_command": [
+        "java",
+        "-classpath",
+        "/workspace/.tools/apache-maven-3.9.11/boot/plexus-classworlds-2.9.0.jar",
+        "-Dmaven.multiModuleProjectDirectory=/workspace/forge",
+        "-Dmaven.repo.local=/workspace/forge/.tools/m2",
+        "-Dclassworlds.conf=/workspace/.tools/apache-maven-3.9.11/bin/m2.conf",
+        "-Dmaven.home=/workspace/.tools/apache-maven-3.9.11",
+        "org.codehaus.plexus.classworlds.launcher.Launcher",
+        "-s",
+        "/workspace/.tools/maven-settings.xml",
+        "-f",
+        "pom.xml",
+        "-pl",
+        "forge-gui-desktop",
+        "-am",
+        "clean",
+        "package",
+        "-DskipTests"
+      ],
+      "jar": "forge-gui-desktop/target/forge-gui-desktop-2.0.16-SNAPSHOT-jar-with-dependencies.jar",
+      "jar_sha256": "30719336b1254c10f6a02806807cad59740f59e48e6627ff4ad8a9c4f4999eb0",
+      "runner_source_sha256": "0f65aa27d05b7859afe83735c2fcb6f0d8a1c9dc6ffc928c46e1d4e19d98deb9",
+      "runner_classes_sha256": {
+        "CommanderEval$1.class": "7fe3761b3d7d77c59bd4b01833c9fd1d0c7f878e8b2c3daadfe4161f8e2c7e67",
+        "CommanderEval$2.class": "a8b24e649bc5c91edeee7b606d8ea9629a00992af5fc49649eb3af3c4474cc16",
+        "CommanderEval$3.class": "d0055098a3413a3e0c0d9f56628bfc7ad6a78c4fa3273d5cf71348aea488193d",
+        "CommanderEval$GameRequest.class": "aa2fc34259ad9a95496110729ec64984c0c459559d669086824b62aa81317db7",
+        "CommanderEval$RejectedInputException.class": "b3683b2c729478fe0bbf89f34d0b6cd06a8f7c837c765a633c045ebbe279a92c",
+        "CommanderEval$Seat.class": "f21184041a7391c43eac2515f703cbf1b825da8aab94a568ebea4f71eae3501d",
+        "CommanderEval.class": "58273db4e25572b5599acbc58224867e8b71d32d3e517633ad1234bd56b38db9"
+      },
+      "harness_sha256": {
+        "node": "14bae185eba498f6feab7de24685961f3bb30d670f12e7b7864035d5fd54f98f",
+        "node_tests": "ca08c1676682001bc0680c4df5a371a212da0e206543e223d74d0325cbf2bf2f",
+        "java": "0f65aa27d05b7859afe83735c2fcb6f0d8a1c9dc6ffc928c46e1d4e19d98deb9",
+        "plan": "c17c9a8aba630f5f5df3f0cff5e66945cf086fca3049cc5d5b8f8e76e1f5f7f7",
+        "manifest": "b5e1862e1fbd038d5f5a53b3656bd78d16dfb60eefd262b22359130a7c3fe2a5"
+      },
+      "built_at": "2026-10-26T19:49:09.221Z"
+    },
+    "validation": {
+      "status": "ready",
+      "seats": [
+        {
+          "total_cards": 100,
+          "file_sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+          "deck_id": "world-shaper",
+          "commander": "Hearthhull, the Worldseed"
+        },
+        {
+          "total_cards": 100,
+          "file_sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788",
+          "deck_id": "multiverse-reforged",
+          "commander": "Jace, Multiverse Architect"
+        }
+      ],
+      "effective_ai": {
+        "profile": "Default",
+        "monte_carlo": "desktop-max",
+        "cheats": false,
+        "filtered_hands": false,
+        "ai_timeout_seconds": 5
+      },
+      "request_id": "3e376e3b-3427-453d-afc1-01c18b24628c",
+      "schema_version": 1,
+      "paths": {
+        "logs": "/workspace/forge/.audit/ai-runs/validate-2026-10-26T19-49-12.296Z-a344cc5c/preflight/profile/forge.log",
+        "decks": "/workspace/forge/.audit/ai-runs/validate-2026-10-26T19-49-12.296Z-a344cc5c/preflight/profile/decks/",
+        "user": "/workspace/forge/.audit/ai-runs/validate-2026-10-26T19-49-12.296Z-a344cc5c/preflight/profile/",
+        "cache": "/workspace/forge/.audit/ai-runs/validate-2026-10-26T19-49-12.296Z-a344cc5c/preflight/cache/"
+      },
+      "profile_file_sha256": "58f1379ff7cda48cae831178111e7895e25f8951a2bca7926516f232ba09fca7"
+    },
+    "decks": [
+      {
+        "id": "world-shaper",
+        "sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793"
+      },
+      {
+        "id": "multiverse-reforged",
+        "sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788"
+      }
+    ]
+  },
+  "summary": {
+    "schema_version": 1,
+    "run_id": "2026-10-26T19-49-23.649Z-827ca946",
+    "created_at": "2026-10-26T19:55:18.223Z",
+    "planned_games": 6,
+    "recorded_games": 6,
+    "counts": {
+      "completed": 6,
+      "timed_out": 0,
+      "crashed": 0,
+      "rejected": 0
+    },
+    "all_completed": true,
+    "games": [
+      {
+        "id": "game-001",
+        "seed": 11025,
+        "seat_decks": [
+          "world-shaper",
+          "world-shaper"
+        ],
+        "outcome": "completed",
+        "terminal": "win",
+        "winner_seat": 0,
+        "engine_end_reason": "AllOpponentsLost",
+        "last_turn": 21,
+        "first_player_seat": 0,
+        "game_log": "game.log"
+      },
+      {
+        "id": "game-002",
+        "seed": 11025,
+        "seat_decks": [
+          "world-shaper",
+          "world-shaper"
+        ],
+        "outcome": "completed",
+        "terminal": "win",
+        "winner_seat": 0,
+        "engine_end_reason": "AllOpponentsLost",
+        "last_turn": 21,
+        "first_player_seat": 0,
+        "game_log": "game.log"
+      },
+      {
+        "id": "game-003",
+        "seed": 11025,
+        "seat_decks": [
+          "world-shaper",
+          "multiverse-reforged"
+        ],
+        "outcome": "completed",
+        "terminal": "win",
+        "winner_seat": 1,
+        "engine_end_reason": "AllOpponentsLost",
+        "last_turn": 16,
+        "first_player_seat": 0,
+        "game_log": "game.log"
+      },
+      {
+        "id": "game-004",
+        "seed": 11025,
+        "seat_decks": [
+          "multiverse-reforged",
+          "world-shaper"
+        ],
+        "outcome": "completed",
+        "terminal": "win",
+        "winner_seat": 0,
+        "engine_end_reason": "AllOpponentsLost",
+        "last_turn": 21,
+        "first_player_seat": 0,
+        "game_log": "game.log"
+      },
+      {
+        "id": "game-005",
+        "seed": 11025,
+        "seat_decks": [
+          "multiverse-reforged",
+          "multiverse-reforged"
+        ],
+        "outcome": "completed",
+        "terminal": "win",
+        "winner_seat": 1,
+        "engine_end_reason": "AllOpponentsLost",
+        "last_turn": 14,
+        "first_player_seat": 0,
+        "game_log": "game.log"
+      },
+      {
+        "id": "game-006",
+        "seed": 11025,
+        "seat_decks": [
+          "multiverse-reforged",
+          "multiverse-reforged"
+        ],
+        "outcome": "completed",
+        "terminal": "win",
+        "winner_seat": 1,
+        "engine_end_reason": "AllOpponentsLost",
+        "last_turn": 14,
+        "first_player_seat": 0,
+        "game_log": "game.log"
+      }
+    ]
+  },
+  "game_receipts": [
+    {
+      "id": "game-001",
+      "request": {
+        "schema_version": 1,
+        "mode": "evaluate",
+        "id": "dc138ce5-1540-46f8-94ec-31d58f43fe11",
+        "seed": 11025,
+        "seats": [
+          {
+            "deckId": "world-shaper",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-001/seat-0.dck",
+            "commander": "Hearthhull, the Worldseed",
+            "totalCards": 100,
+            "expectedSha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793"
+          },
+          {
+            "deckId": "world-shaper",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-001/seat-1.dck",
+            "commander": "Hearthhull, the Worldseed",
+            "totalCards": 100,
+            "expectedSha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793"
+          }
+        ],
+        "profile": "Default",
+        "monte_carlo": "desktop-max",
+        "ai_timeout_seconds": 5,
+        "output_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-001",
+        "assets_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-001/assets",
+        "resource_root": "/workspace/forge/forge-gui/res"
+      },
+      "setup": {
+        "status": "ready",
+        "seats": [
+          {
+            "commander": "Hearthhull, the Worldseed",
+            "total_cards": 100,
+            "file_sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+            "deck_id": "world-shaper"
+          },
+          {
+            "commander": "Hearthhull, the Worldseed",
+            "total_cards": 100,
+            "file_sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+            "deck_id": "world-shaper"
+          }
+        ],
+        "effective_ai": {
+          "profile": "Default",
+          "monte_carlo": "desktop-max",
+          "cheats": false,
+          "filtered_hands": false,
+          "ai_timeout_seconds": 5
+        },
+        "request_id": "dc138ce5-1540-46f8-94ec-31d58f43fe11",
+        "schema_version": 1,
+        "paths": {
+          "logs": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-001/profile/forge.log",
+          "decks": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-001/profile/decks/",
+          "user": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-001/profile/",
+          "cache": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-001/cache/"
+        },
+        "profile_file_sha256": "4ec6c601b8d412f09841894fcf60fa8d4f4aa858bdadf3c5ab85940cbfcaa74e"
+      },
+      "started": {
+        "request_id": "dc138ce5-1540-46f8-94ec-31d58f43fe11",
+        "schema_version": 1,
+        "status": "started"
+      },
+      "terminal": {
+        "terminal": "win",
+        "commander_life": [
+          40,
+          40
+        ],
+        "engine_end_reason": "AllOpponentsLost",
+        "schema_version": 1,
+        "winner_seat": 0,
+        "game_log": "game.log",
+        "status": "terminal",
+        "last_turn": 21,
+        "first_player_seat": 0,
+        "request_id": "dc138ce5-1540-46f8-94ec-31d58f43fe11"
+      },
+      "logs": {
+        "stdout.log": {
+          "sha256": "a096c7b406be43328e39ce700d00ecf25e2fe24a3c407c213a46a8c927ec36c8",
+          "bytes": 84126,
+          "exception_or_error_matches": []
+        },
+        "stderr.log": {
+          "sha256": "d0c5f54f9fbf2aae6f9198901cc64334ada5ad6ca4295f786fbd3a073b7a2198",
+          "bytes": 2576,
+          "exception_or_error_matches": []
+        },
+        "game.log": {
+          "sha256": "4eefcfe73561ce59ca52c9dd394d115c599dff20c0298a41a8d054b7538be5e0",
+          "bytes": 43080,
+          "exception_or_error_matches": []
+        }
+      }
+    },
+    {
+      "id": "game-002",
+      "request": {
+        "schema_version": 1,
+        "mode": "evaluate",
+        "id": "281edadf-254c-4dca-86f8-e5b87c079691",
+        "seed": 11025,
+        "seats": [
+          {
+            "deckId": "world-shaper",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-002/seat-0.dck",
+            "commander": "Hearthhull, the Worldseed",
+            "totalCards": 100,
+            "expectedSha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793"
+          },
+          {
+            "deckId": "world-shaper",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-002/seat-1.dck",
+            "commander": "Hearthhull, the Worldseed",
+            "totalCards": 100,
+            "expectedSha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793"
+          }
+        ],
+        "profile": "Default",
+        "monte_carlo": "desktop-max",
+        "ai_timeout_seconds": 5,
+        "output_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-002",
+        "assets_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-002/assets",
+        "resource_root": "/workspace/forge/forge-gui/res"
+      },
+      "setup": {
+        "schema_version": 1,
+        "request_id": "281edadf-254c-4dca-86f8-e5b87c079691",
+        "effective_ai": {
+          "cheats": false,
+          "monte_carlo": "desktop-max",
+          "profile": "Default",
+          "ai_timeout_seconds": 5,
+          "filtered_hands": false
+        },
+        "seats": [
+          {
+            "commander": "Hearthhull, the Worldseed",
+            "deck_id": "world-shaper",
+            "file_sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+            "total_cards": 100
+          },
+          {
+            "commander": "Hearthhull, the Worldseed",
+            "deck_id": "world-shaper",
+            "file_sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+            "total_cards": 100
+          }
+        ],
+        "status": "ready",
+        "profile_file_sha256": "fbdb301f1d82a213039f2af9e16a34c7cdf69136891b442e27a8e9ec460ec7a6",
+        "paths": {
+          "decks": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-002/profile/decks/",
+          "logs": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-002/profile/forge.log",
+          "cache": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-002/cache/",
+          "user": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-002/profile/"
+        }
+      },
+      "started": {
+        "request_id": "281edadf-254c-4dca-86f8-e5b87c079691",
+        "status": "started",
+        "schema_version": 1
+      },
+      "terminal": {
+        "status": "terminal",
+        "game_log": "game.log",
+        "winner_seat": 0,
+        "schema_version": 1,
+        "engine_end_reason": "AllOpponentsLost",
+        "commander_life": [
+          40,
+          40
+        ],
+        "terminal": "win",
+        "request_id": "281edadf-254c-4dca-86f8-e5b87c079691",
+        "first_player_seat": 0,
+        "last_turn": 21
+      },
+      "logs": {
+        "stdout.log": {
+          "sha256": "a096c7b406be43328e39ce700d00ecf25e2fe24a3c407c213a46a8c927ec36c8",
+          "bytes": 84126,
+          "exception_or_error_matches": []
+        },
+        "stderr.log": {
+          "sha256": "dcdafa4f53fda881425af80edb2386757af556cf70b5e53454f4a79d3e825db7",
+          "bytes": 3388,
+          "exception_or_error_matches": []
+        },
+        "game.log": {
+          "sha256": "c67ab862865623da902d559d07ac024f3f0ae1bb0cd6d8e024ee5444d20a9da4",
+          "bytes": 37030,
+          "exception_or_error_matches": []
+        }
+      }
+    },
+    {
+      "id": "game-003",
+      "request": {
+        "schema_version": 1,
+        "mode": "evaluate",
+        "id": "9d363f8d-7a5d-40d1-9ce3-f93a23d3cb40",
+        "seed": 11025,
+        "seats": [
+          {
+            "deckId": "world-shaper",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-003/seat-0.dck",
+            "commander": "Hearthhull, the Worldseed",
+            "totalCards": 100,
+            "expectedSha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793"
+          },
+          {
+            "deckId": "multiverse-reforged",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-003/seat-1.dck",
+            "commander": "Jace, Multiverse Architect",
+            "totalCards": 100,
+            "expectedSha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788"
+          }
+        ],
+        "profile": "Default",
+        "monte_carlo": "desktop-max",
+        "ai_timeout_seconds": 5,
+        "output_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-003",
+        "assets_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-003/assets",
+        "resource_root": "/workspace/forge/forge-gui/res"
+      },
+      "setup": {
+        "status": "ready",
+        "seats": [
+          {
+            "total_cards": 100,
+            "file_sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+            "deck_id": "world-shaper",
+            "commander": "Hearthhull, the Worldseed"
+          },
+          {
+            "total_cards": 100,
+            "file_sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788",
+            "deck_id": "multiverse-reforged",
+            "commander": "Jace, Multiverse Architect"
+          }
+        ],
+        "effective_ai": {
+          "profile": "Default",
+          "monte_carlo": "desktop-max",
+          "cheats": false,
+          "filtered_hands": false,
+          "ai_timeout_seconds": 5
+        },
+        "request_id": "9d363f8d-7a5d-40d1-9ce3-f93a23d3cb40",
+        "schema_version": 1,
+        "paths": {
+          "logs": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-003/profile/forge.log",
+          "decks": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-003/profile/decks/",
+          "user": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-003/profile/",
+          "cache": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-003/cache/"
+        },
+        "profile_file_sha256": "c34d2f77803c0e3d8e15beff366b7799eed3fa00dd1c1045ecb065156457b4a4"
+      },
+      "started": {
+        "request_id": "9d363f8d-7a5d-40d1-9ce3-f93a23d3cb40",
+        "schema_version": 1,
+        "status": "started"
+      },
+      "terminal": {
+        "terminal": "win",
+        "commander_life": [
+          40,
+          40
+        ],
+        "engine_end_reason": "AllOpponentsLost",
+        "schema_version": 1,
+        "winner_seat": 1,
+        "game_log": "game.log",
+        "status": "terminal",
+        "last_turn": 16,
+        "first_player_seat": 0,
+        "request_id": "9d363f8d-7a5d-40d1-9ce3-f93a23d3cb40"
+      },
+      "logs": {
+        "stdout.log": {
+          "sha256": "281d395f6608da3604070c711ce230b9a51c521c1c5b0e776dd0f0e8fb38a024",
+          "bytes": 87896,
+          "exception_or_error_matches": []
+        },
+        "stderr.log": {
+          "sha256": "0c9de85b2746c6f9246177824223d4e126ceac3ff1f0320079499f1f852e6a4e",
+          "bytes": 3420,
+          "exception_or_error_matches": []
+        },
+        "game.log": {
+          "sha256": "03e3776aca320b00a7414acdc52a852b6b377aa69a5248cbb39af1e4632e93c0",
+          "bytes": 26986,
+          "exception_or_error_matches": []
+        }
+      }
+    },
+    {
+      "id": "game-004",
+      "request": {
+        "schema_version": 1,
+        "mode": "evaluate",
+        "id": "e3f2a131-0504-45e8-aa34-f2ec0af643d0",
+        "seed": 11025,
+        "seats": [
+          {
+            "deckId": "multiverse-reforged",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-004/seat-0.dck",
+            "commander": "Jace, Multiverse Architect",
+            "totalCards": 100,
+            "expectedSha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788"
+          },
+          {
+            "deckId": "world-shaper",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-004/seat-1.dck",
+            "commander": "Hearthhull, the Worldseed",
+            "totalCards": 100,
+            "expectedSha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793"
+          }
+        ],
+        "profile": "Default",
+        "monte_carlo": "desktop-max",
+        "ai_timeout_seconds": 5,
+        "output_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-004",
+        "assets_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-004/assets",
+        "resource_root": "/workspace/forge/forge-gui/res"
+      },
+      "setup": {
+        "request_id": "e3f2a131-0504-45e8-aa34-f2ec0af643d0",
+        "effective_ai": {
+          "monte_carlo": "desktop-max",
+          "profile": "Default",
+          "ai_timeout_seconds": 5,
+          "filtered_hands": false,
+          "cheats": false
+        },
+        "seats": [
+          {
+            "commander": "Jace, Multiverse Architect",
+            "deck_id": "multiverse-reforged",
+            "file_sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788",
+            "total_cards": 100
+          },
+          {
+            "commander": "Hearthhull, the Worldseed",
+            "deck_id": "world-shaper",
+            "file_sha256": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+            "total_cards": 100
+          }
+        ],
+        "status": "ready",
+        "profile_file_sha256": "b0b9f53d155fecfa45bac8c2d28a807ec72409db301fdcc9017156015ebb16e6",
+        "paths": {
+          "logs": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-004/profile/forge.log",
+          "cache": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-004/cache/",
+          "user": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-004/profile/",
+          "decks": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-004/profile/decks/"
+        },
+        "schema_version": 1
+      },
+      "started": {
+        "request_id": "e3f2a131-0504-45e8-aa34-f2ec0af643d0",
+        "status": "started",
+        "schema_version": 1
+      },
+      "terminal": {
+        "winner_seat": 0,
+        "schema_version": 1,
+        "engine_end_reason": "AllOpponentsLost",
+        "commander_life": [
+          40,
+          40
+        ],
+        "terminal": "win",
+        "request_id": "e3f2a131-0504-45e8-aa34-f2ec0af643d0",
+        "first_player_seat": 0,
+        "last_turn": 21,
+        "status": "terminal",
+        "game_log": "game.log"
+      },
+      "logs": {
+        "stdout.log": {
+          "sha256": "7ca5b2991efe10a30a411c05c21afcc518c1077b6073aa82fac536221b41e1b0",
+          "bytes": 39736,
+          "exception_or_error_matches": []
+        },
+        "stderr.log": {
+          "sha256": "7ab216c80ad6cc2897919ba5010dfbf4510872ad74f9e125febf44160af3da3b",
+          "bytes": 8738,
+          "exception_or_error_matches": []
+        },
+        "game.log": {
+          "sha256": "0c1823082980ffd3bb075f62098d7f008e85757b6a87488ec4e0e83957cdbb48",
+          "bytes": 44032,
+          "exception_or_error_matches": []
+        }
+      }
+    },
+    {
+      "id": "game-005",
+      "request": {
+        "schema_version": 1,
+        "mode": "evaluate",
+        "id": "b8e930f4-7a31-42e1-95bf-30b0e348749e",
+        "seed": 11025,
+        "seats": [
+          {
+            "deckId": "multiverse-reforged",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-005/seat-0.dck",
+            "commander": "Jace, Multiverse Architect",
+            "totalCards": 100,
+            "expectedSha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788"
+          },
+          {
+            "deckId": "multiverse-reforged",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-005/seat-1.dck",
+            "commander": "Jace, Multiverse Architect",
+            "totalCards": 100,
+            "expectedSha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788"
+          }
+        ],
+        "profile": "Default",
+        "monte_carlo": "desktop-max",
+        "ai_timeout_seconds": 5,
+        "output_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-005",
+        "assets_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-005/assets",
+        "resource_root": "/workspace/forge/forge-gui/res"
+      },
+      "setup": {
+        "profile_file_sha256": "b54db5654675bb1ff3139d6f325fb241f9540fd16cb060122996cb42a6188f5f",
+        "paths": {
+          "cache": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-005/cache/",
+          "user": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-005/profile/",
+          "decks": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-005/profile/decks/",
+          "logs": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-005/profile/forge.log"
+        },
+        "schema_version": 1,
+        "request_id": "b8e930f4-7a31-42e1-95bf-30b0e348749e",
+        "effective_ai": {
+          "ai_timeout_seconds": 5,
+          "filtered_hands": false,
+          "cheats": false,
+          "monte_carlo": "desktop-max",
+          "profile": "Default"
+        },
+        "seats": [
+          {
+            "commander": "Jace, Multiverse Architect",
+            "deck_id": "multiverse-reforged",
+            "file_sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788",
+            "total_cards": 100
+          },
+          {
+            "commander": "Jace, Multiverse Architect",
+            "deck_id": "multiverse-reforged",
+            "file_sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788",
+            "total_cards": 100
+          }
+        ],
+        "status": "ready"
+      },
+      "started": {
+        "status": "started",
+        "schema_version": 1,
+        "request_id": "b8e930f4-7a31-42e1-95bf-30b0e348749e"
+      },
+      "terminal": {
+        "commander_life": [
+          40,
+          40
+        ],
+        "terminal": "win",
+        "request_id": "b8e930f4-7a31-42e1-95bf-30b0e348749e",
+        "first_player_seat": 0,
+        "last_turn": 14,
+        "status": "terminal",
+        "game_log": "game.log",
+        "winner_seat": 1,
+        "schema_version": 1,
+        "engine_end_reason": "AllOpponentsLost"
+      },
+      "logs": {
+        "stdout.log": {
+          "sha256": "1696ab884ed7df46574c3306b5103b6ec7cff4fb990863f7b6ddba40f532d1e4",
+          "bytes": 44021,
+          "exception_or_error_matches": []
+        },
+        "stderr.log": {
+          "sha256": "fef16d96cc007ce9137958ca496e793eb2174808879a3af112eea6e495b0e44d",
+          "bytes": 3625,
+          "exception_or_error_matches": []
+        },
+        "game.log": {
+          "sha256": "2d49dd5a0f28118e7fb86cef5e4884c7e9687f5fbb2858048865feb9f9c60f45",
+          "bytes": 23639,
+          "exception_or_error_matches": []
+        }
+      }
+    },
+    {
+      "id": "game-006",
+      "request": {
+        "schema_version": 1,
+        "mode": "evaluate",
+        "id": "19e1d885-d1e9-4a36-be09-bc5ed5fc5f4f",
+        "seed": 11025,
+        "seats": [
+          {
+            "deckId": "multiverse-reforged",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-006/seat-0.dck",
+            "commander": "Jace, Multiverse Architect",
+            "totalCards": 100,
+            "expectedSha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788"
+          },
+          {
+            "deckId": "multiverse-reforged",
+            "deckFile": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-006/seat-1.dck",
+            "commander": "Jace, Multiverse Architect",
+            "totalCards": 100,
+            "expectedSha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788"
+          }
+        ],
+        "profile": "Default",
+        "monte_carlo": "desktop-max",
+        "ai_timeout_seconds": 5,
+        "output_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-006",
+        "assets_directory": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-006/assets",
+        "resource_root": "/workspace/forge/forge-gui/res"
+      },
+      "setup": {
+        "profile_file_sha256": "409217bf65a858ad9d09d014443c6e622c02209441570a26ec800e62b0ca027d",
+        "paths": {
+          "cache": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-006/cache/",
+          "user": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-006/profile/",
+          "decks": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-006/profile/decks/",
+          "logs": "/workspace/forge/.audit/ai-runs/2026-10-26T19-49-23.649Z-827ca946/games/game-006/profile/forge.log"
+        },
+        "schema_version": 1,
+        "request_id": "19e1d885-d1e9-4a36-be09-bc5ed5fc5f4f",
+        "effective_ai": {
+          "ai_timeout_seconds": 5,
+          "filtered_hands": false,
+          "cheats": false,
+          "monte_carlo": "desktop-max",
+          "profile": "Default"
+        },
+        "seats": [
+          {
+            "deck_id": "multiverse-reforged",
+            "file_sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788",
+            "total_cards": 100,
+            "commander": "Jace, Multiverse Architect"
+          },
+          {
+            "deck_id": "multiverse-reforged",
+            "file_sha256": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788",
+            "total_cards": 100,
+            "commander": "Jace, Multiverse Architect"
+          }
+        ],
+        "status": "ready"
+      },
+      "started": {
+        "schema_version": 1,
+        "request_id": "19e1d885-d1e9-4a36-be09-bc5ed5fc5f4f",
+        "status": "started"
+      },
+      "terminal": {
+        "request_id": "19e1d885-d1e9-4a36-be09-bc5ed5fc5f4f",
+        "first_player_seat": 0,
+        "last_turn": 14,
+        "status": "terminal",
+        "game_log": "game.log",
+        "winner_seat": 1,
+        "schema_version": 1,
+        "engine_end_reason": "AllOpponentsLost",
+        "commander_life": [
+          40,
+          40
+        ],
+        "terminal": "win"
+      },
+      "logs": {
+        "stdout.log": {
+          "sha256": "5f3bea61ec35624f0dcd8037b357cc58a3a5fb40559c02b579c5307545c490aa",
+          "bytes": 44104,
+          "exception_or_error_matches": []
+        },
+        "stderr.log": {
+          "sha256": "fef16d96cc007ce9137958ca496e793eb2174808879a3af112eea6e495b0e44d",
+          "bytes": 3625,
+          "exception_or_error_matches": []
+        },
+        "game.log": {
+          "sha256": "4eb551d5c7a8ac53d1549c9fbcba9b645c1964da7251d153376e50375e128469",
+          "bytes": 23639,
+          "exception_or_error_matches": []
+        }
+      }
+    }
+  ],
+  "verification_source_hashes": {
+    "head": "c4e4610809b8c0fc50f07e3b01d8d031217200aa",
+    "sha256": {
+      ".gitattributes": "6b145762bcc255f35c6c4ebd42ed07d16960392e6d137f5ed22a3bea58eca1e9",
+      "scripts/neo-forge.mjs": "14bae185eba498f6feab7de24685961f3bb30d670f12e7b7864035d5fd54f98f",
+      "scripts/neo-forge.test.mjs": "ca08c1676682001bc0680c4df5a371a212da0e206543e223d74d0325cbf2bf2f",
+      "scripts/setup-forge-cloud.sh": "0e72a90b2829aad6854ed5643c8dff5cf6498aea243271c4b74fee2b7febc9cd",
+      "evaluation/ai/decks/world-shaper.dck": "bc6b2b88045e3efa8e1247d147bfcda2cf592196463006fe019883e6b1fcc793",
+      "evaluation/ai/decks/multiverse-reforged.dck": "23ec69e88352e274c598a420fb7676e2606774b6768a2e728f786e120a011788"
+    }
+  },
+  "jace_regression": {
+    "name": "forge.ai.JaceMultiverseArchitectAiTest",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "cases": [
+      "convertsDisposableToken",
+      "keepsValuableCreature"
+    ],
+    "xml_sha256": "454fd300e0bf9ae6b4fbdbd9420d2a951571a94e3861a700c369d30b0b954cc2"
+  },
+  "desktop_verification": {
+    "command": "DISPLAY=:98 LD_LIBRARY_PATH=/workspace/.tools/sysroot/usr/lib/x86_64-linux-gnu node scripts/neo-forge.mjs play",
+    "startup_receipt": {
+      "schema_version": 1,
+      "effective_ai": {
+        "filtered_hands": false,
+        "ai_timeout_seconds": 5,
+        "profile": "Default",
+        "monte_carlo": "desktop-max",
+        "cheats": false
+      },
+      "pid": 10842,
+      "request_id": "baseline",
+      "paths": {
+        "user": "/workspace/forge/.tools/human-baseline/profile/",
+        "cache": "/workspace/forge/.tools/human-baseline/cache/",
+        "logs": "/workspace/forge/.tools/human-baseline/profile/forge.log",
+        "decks": "/workspace/forge/.tools/human-baseline/profile/decks/"
+      },
+      "status": "desktop-started"
+    },
+    "live_pid_observed": true,
+    "window_observation": "\nxwininfo: Window id: 0x21f (the root window) (has no name)\n\n  Root window id: 0x21f (the root window) (has no name)\n  Parent window id: 0x0 (none)\n     5 children:\n     0x200055 \"Forge\": (\"CommanderEval\" \"CommanderEval\")  456x213+172+193  +172+193\n        2 children:\n        0x200060 \"FocusProxy\": (\"Focus-Proxy-Window\" \"FocusProxy\")  1x1+-1+-1  +171+192\n        0x20005d \"Content window\": (\"CommanderEval\" \"CommanderEval\")  456x213+0+0  +172+193\n     0x20005c \"sun-awt-X11-XIconWindow\": ()  16x16+0+0  +0+0\n     0x200047 \"Forge: 2.0.16-SNAPSHOT-10.26\": (\"CommanderEval\" \"CommanderEval\")  800x600+0+0  +0+0\n        2 children:\n        0x200052 \"FocusProxy\": (\"Focus-Proxy-Window\" \"FocusProxy\")  1x1+-1+-1  +-1+-1\n        0x20004f \"Content window\": (\"CommanderEval\" \"CommanderEval\")  800x600+0+0  +0+0\n     0x20004e \"sun-awt-X11-XIconWindow\": ()  16x16+0+0  +0+0\n     0x200008 \"CommanderEval\": (\"CommanderEval\" \"CommanderEval\")  1x1+1+1  +1+1\n\n",
+    "runner_source_sha256": "14bae185eba498f6feab7de24685961f3bb30d670f12e7b7864035d5fd54f98f",
+    "jar_sha256": "30719336b1254c10f6a02806807cad59740f59e48e6627ff4ad8a9c4f4999eb0",
+    "screenshot": "2026-10-26-desktop.png",
+    "screenshot_sha256": "f620f34fe19b6d4ed898c830ab8d747c81d64d7a3e9c864d8bd40baff45c77cb",
+    "stdout": "Forge desktop initialized (PID 10842) with baseline profile /workspace/forge/.tools/human-baseline. Startup evidence: /workspace/forge/.tools/human-baseline/desktop-started.json\n",
+    "stderr_sha256": "100e2d8ef63f44ba3c114b859ddecb03f2b1fc35b093e525597be3e2f46e559d",
+    "scope": "Visible versioned main frame under Xvfb. No human gameplay or remote browser access tested."
+  },
+  "raw_evidence_archive": {
+    "file": "2026-10-26-stock-smoke-raw.zip",
+    "sha256": "aa891049185ddde2e3af985498a73ecea885e1e4c449ed2e1e3305ab64a4b3a1",
+    "entries": 98,
+    "scope": "Original game requests, receipts, complete logs, staged decks, validation and verification evidence. Extract from the repository root to restore recorded relative paths."
+  },
+  "publication_formatting": {
+    "scope": "Removed one empty EOF line from setup-forge-cloud.sh and development.md after independent verification. No executable statements changed.",
+    "setup_sha256_reviewed": "0e72a90b2829aad6854ed5643c8dff5cf6498aea243271c4b74fee2b7febc9cd",
+    "setup_sha256_published": "23082bd0b33dfa65d2e5e51ea74262d1ddd2a8c85a45e075a76b3e6af8b5d898"
+  }
+}

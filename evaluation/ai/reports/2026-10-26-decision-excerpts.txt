@@ -1,0 +1,234 @@
+Selected game-log lines from the fresh stock smoke run.
+These lines show execution, not tactical quality. Source SHA-256 values are in the JSON report.
+
+game-001
+
+1: MULLIGAN	Eval seat 0 has mulliganed down to 6 cards.
+2: MULLIGAN	Eval seat 0 has kept a hand of 6 cards
+3: MULLIGAN	Eval seat 1 has kept a hand of 7 cards
+4: TURN	Turn 1 (Eval seat 0)
+5: PHASE	Eval seat 0's Untap step
+6: PHASE	Eval seat 0's Upkeep step
+383: MANA	Forest (178) - {T}: Add {G}.
+384: STACK_ADD	Eval seat 1 cast Hearthhull, the Worldseed
+385: STACK_RESOLVE	Hearthhull, the Worldseed
+386: PHASE	Eval seat 1's End step
+387: PHASE	Eval seat 1's Cleanup step
+582: LAND	Eval seat 1 played Llanowar Wastes (136)
+583: STACK_ADD	Eval seat 1 activated Hearthhull, the Worldseed
+584: STACK_RESOLVE	Hearthhull, the Worldseed (201) - Eval seat 1 puts three charge counters on Hearthhull, the Worldseed (201).
+585: MANA	Forest (178) - {T}: Add {G}.
+586: ZONE_CHANGE	Forest (178) was put into Graveyard from Battlefield.
+587: STACK_ADD	Eval seat 1 activated Hearthhull, the Worldseed
+588: STACK_ADD	Eval seat 0 triggered Mazirek, Kraul Death Priest
+589: STACK_RESOLVE	Whenever a player sacrifices another permanent, put a +1/+1 counter on each creature you control. [Sacrificed: Forest (178)]
+590: STACK_RESOLVE	Hearthhull, the Worldseed (201) - Eval seat 1 draws two cards. 
+591: LAND	Eval seat 1 played Evolving Wilds (175)
+592: ZONE_CHANGE	Evolving Wilds (175) was put into Graveyard from Battlefield.
+722: LIFE	Life: Eval seat 1 12 > -175
+723: PLAYER_CONTROL	Eval seat 0 has restored control over themself
+724: PLAYER_CONTROL	Eval seat 1 has restored control over themself
+725: GAME_OUTCOME	Match Duration 1m : 10s
+726: GAME_OUTCOME	Turn 11
+727: GAME_OUTCOME	Eval seat 0 has won because all opponents have lost
+728: GAME_OUTCOME	Eval seat 1 has lost because life total reached 0
+729: MATCH_RESULTS	Eval seat 0: 1 Eval seat 1: 0 
+
+game-002
+
+1: MULLIGAN	Eval seat 0 has mulliganed down to 6 cards.
+2: MULLIGAN	Eval seat 0 has kept a hand of 6 cards
+3: MULLIGAN	Eval seat 1 has kept a hand of 7 cards
+4: TURN	Turn 1 (Eval seat 0)
+5: PHASE	Eval seat 0's Untap step
+6: PHASE	Eval seat 0's Upkeep step
+376: MANA	Forest (178) - {T}: Add {G}.
+377: STACK_ADD	Eval seat 1 cast Hearthhull, the Worldseed
+378: STACK_RESOLVE	Hearthhull, the Worldseed
+379: PHASE	Eval seat 1's Beginning of Combat Step
+380: PHASE	Eval seat 1's Declare Attackers Step
+655: LIFE	Life: Eval seat 1 4 > -11
+656: PLAYER_CONTROL	Eval seat 0 has restored control over themself
+657: PLAYER_CONTROL	Eval seat 1 has restored control over themself
+658: GAME_OUTCOME	Match Duration 0m : 57s
+659: GAME_OUTCOME	Turn 11
+660: GAME_OUTCOME	Eval seat 0 has won because all opponents have lost
+661: GAME_OUTCOME	Eval seat 1 has lost because life total reached 0
+662: MATCH_RESULTS	Eval seat 0: 1 Eval seat 1: 0 
+
+game-003
+
+1: MULLIGAN	Eval seat 0 has mulliganed down to 6 cards.
+2: MULLIGAN	Eval seat 0 has kept a hand of 6 cards
+3: MULLIGAN	Eval seat 1 has kept a hand of 7 cards
+4: TURN	Turn 1 (Eval seat 0)
+5: PHASE	Eval seat 0's Untap step
+6: PHASE	Eval seat 0's Upkeep step
+187: MANA	Radiant Summit (161) - {T}: Add {R}.
+188: STACK_ADD	Eval seat 1 cast Jace, Multiverse Architect
+189: EFFECT_REPLACED	Jace, Multiverse Architect enters with four loyalty counters on it.
+190: STACK_RESOLVE	Jace, Multiverse Architect
+191: STACK_ADD	Eval seat 1 activated Jace, Multiverse Architect targeting [Phyrexian Mite Token (204)]
+192: ZONE_CHANGE	Phyrexian Mite Token (204) was put into Exile from Battlefield.
+193: STACK_RESOLVE	Jace, Multiverse Architect (201) - Exile Phyrexian Mite Token (204). Eval seat 1reveals cards from their library until revealing a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of their library in a random order.
+194: PHASE	Eval seat 1's Beginning of Combat Step
+195: PHASE	Eval seat 1's Declare Attackers Step
+214: MANA	Forest (45) - {T}: Add {G}.
+215: STACK_ADD	Eval seat 0 cast Hearthhull, the Worldseed
+216: STACK_RESOLVE	Hearthhull, the Worldseed
+217: PHASE	Eval seat 0's Beginning of Combat Step
+218: STACK_ADD	Eval seat 1 triggered Jace, Multiverse Architect
+219: MANA	Forest (77) - {T}: Add {G}.
+220: MANA	Twilight Mire (95) - {B/G}, {T}: Add {B}{B}, {B}{G}, or {G}{G}.
+227: PHASE	Eval seat 0's Main phase, postcombat
+228: STACK_ADD	Eval seat 0 activated Hearthhull, the Worldseed
+229: STACK_RESOLVE	Hearthhull, the Worldseed (100) - Eval seat 0 puts two charge counters on Hearthhull, the Worldseed (100).
+230: PHASE	Eval seat 0's End step
+231: PHASE	Eval seat 0's Cleanup step
+273: PHASE	Eval seat 1's Main phase, postcombat
+274: STACK_ADD	Eval seat 1 activated Jace, Multiverse Architect
+275: STACK_RESOLVE	Jace, Multiverse Architect (201) - Eval seat 1 draws two cards. Eval seat 1 puts a card from their hand on the bottom of their library.
+276: PHASE	Eval seat 1's End step
+277: STACK_ADD	Eval seat 1 triggered Ob Nixilis, the Ascended
+487: DAMAGE	Eval seat 0 receives 2 poison counter from Eval seat 1
+488: PLAYER_CONTROL	Eval seat 0 has restored control over themself
+489: PLAYER_CONTROL	Eval seat 1 has restored control over themself
+490: GAME_OUTCOME	Match Duration 0m : 41s
+491: GAME_OUTCOME	Turn 8
+492: GAME_OUTCOME	Eval seat 0 has lost because life total reached 0
+493: GAME_OUTCOME	Eval seat 1 has won because all opponents have lost
+494: MATCH_RESULTS	Eval seat 0: 0 Eval seat 1: 1 
+
+game-004
+
+1: MULLIGAN	Eval seat 0 has kept a hand of 7 cards
+2: MULLIGAN	Eval seat 1 has kept a hand of 7 cards
+3: TURN	Turn 1 (Eval seat 0)
+4: PHASE	Eval seat 0's Untap step
+5: PHASE	Eval seat 0's Upkeep step
+6: PHASE	Eval seat 0's Draw step
+252: MANA	Forest (180) - {T}: Add {G}.
+253: STACK_ADD	Eval seat 1 cast Hearthhull, the Worldseed
+254: STACK_RESOLVE	Hearthhull, the Worldseed
+255: STACK_ADD	Eval seat 1 activated Hearthhull, the Worldseed
+256: STACK_RESOLVE	Hearthhull, the Worldseed (201) - Eval seat 1 puts a charge counter on Hearthhull, the Worldseed (201).
+257: STACK_ADD	Eval seat 1 activated Hearthhull, the Worldseed
+258: STACK_RESOLVE	Hearthhull, the Worldseed (201) - Eval seat 1 puts three charge counters on Hearthhull, the Worldseed (201).
+259: MANA	Forest (178) - {T}: Add {G}.
+260: ZONE_CHANGE	Forest (146) was put into Graveyard from Battlefield.
+261: STACK_ADD	Eval seat 1 activated Hearthhull, the Worldseed
+262: STACK_RESOLVE	Hearthhull, the Worldseed (201) - Eval seat 1 draws two cards. 
+263: STACK_ADD	Eval seat 1 activated Hearthhull, the Worldseed
+264: STACK_RESOLVE	Hearthhull, the Worldseed (201) - Eval seat 1 puts four charge counters on Hearthhull, the Worldseed (201).
+265: PHASE	Eval seat 1's Beginning of Combat Step
+266: PHASE	Eval seat 1's Declare Attackers Step
+291: MANA	Caves of Koilos (31) - {T}: Add {C}.
+292: STACK_ADD	Eval seat 0 cast Jace, Multiverse Architect
+293: EFFECT_REPLACED	Jace, Multiverse Architect enters with four loyalty counters on it.
+294: STACK_RESOLVE	Jace, Multiverse Architect
+295: STACK_ADD	Eval seat 0 activated Jace, Multiverse Architect targeting [Spirit Token (230)]
+722: LIFE	Life: Eval seat 1 16 > -10
+723: PLAYER_CONTROL	Eval seat 0 has restored control over themself
+724: PLAYER_CONTROL	Eval seat 1 has restored control over themself
+725: GAME_OUTCOME	Match Duration 1m : 15s
+726: GAME_OUTCOME	Turn 11
+727: GAME_OUTCOME	Eval seat 0 has won because all opponents have lost
+728: GAME_OUTCOME	Eval seat 1 has lost because life total reached 0
+729: MATCH_RESULTS	Eval seat 0: 1 Eval seat 1: 0 
+
+game-005
+
+1: MULLIGAN	Eval seat 0 has kept a hand of 7 cards
+2: MULLIGAN	Eval seat 1 has kept a hand of 7 cards
+3: TURN	Turn 1 (Eval seat 0)
+4: PHASE	Eval seat 0's Untap step
+5: PHASE	Eval seat 0's Upkeep step
+6: PHASE	Eval seat 0's Draw step
+142: MANA	Mountain (116) - {T}: Add {R}.
+143: STACK_ADD	Eval seat 1 cast Jace, Multiverse Architect
+144: EFFECT_REPLACED	Jace, Multiverse Architect enters with four loyalty counters on it.
+145: STACK_RESOLVE	Jace, Multiverse Architect
+146: STACK_ADD	Eval seat 1 activated Jace, Multiverse Architect targeting [Phyrexian Mite Token (212)]
+147: ZONE_CHANGE	Phyrexian Mite Token (212) was put into Exile from Battlefield.
+148: STACK_RESOLVE	Jace, Multiverse Architect (201) - Exile Phyrexian Mite Token (212). Eval seat 1reveals cards from their library until revealing a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of their library in a random order.
+149: PHASE	Eval seat 1's Beginning of Combat Step
+150: PHASE	Eval seat 1's Declare Attackers Step
+170: PHASE	Eval seat 0's Beginning of Combat Step
+171: STACK_ADD	Eval seat 1 triggered Jace, Multiverse Architect
+172: STACK_RESOLVE	At the beginning of combat on each opponent's turn, they may pay {2}. If they don't, creatures they control can't attack Jaces you control this turn. [Phase: Eval seat 0]
+173: PHASE	Eval seat 0's Declare Attackers Step
+190: LAND	Eval seat 1 played Radiant Summit (161)
+191: STACK_ADD	Eval seat 1 activated Jace, Multiverse Architect
+192: STACK_RESOLVE	Jace, Multiverse Architect (201) - Eval seat 1 draws two cards. Eval seat 1 puts a card from their hand on the bottom of their library.
+193: MANA	Turbulent Shore (146) - {T}: Add {W}.
+194: MANA	Fetid Heath (156) - {W/B}, {T}: Add {W}{W}, {W}{B}, or {B}{B}.
+242: PHASE	Eval seat 0's Beginning of Combat Step
+243: STACK_ADD	Eval seat 1 triggered Jace, Multiverse Architect
+244: STACK_RESOLVE	At the beginning of combat on each opponent's turn, they may pay {2}. If they don't, creatures they control can't attack Jaces you control this turn. [Phase: Eval seat 0]
+245: PHASE	Eval seat 0's Declare Attackers Step
+297: PHASE	Eval seat 1's Main phase, postcombat
+298: STACK_ADD	Eval seat 1 activated Jace, Multiverse Architect
+299: STACK_RESOLVE	Jace, Multiverse Architect (201) - Eval seat 1 draws two cards. Eval seat 1 puts a card from their hand on the bottom of their library.
+300: PHASE	Eval seat 1's End step
+301: STACK_ADD	Eval seat 1 triggered Archfiend of Despair
+323: PHASE	Eval seat 0's Beginning of Combat Step
+324: STACK_ADD	Eval seat 1 triggered Jace, Multiverse Architect
+325: MANA	Kher Keep (75) - {T}: Add {C}.
+326: MANA	Caves of Koilos (31) - {T}: Add {C}.
+413: DAMAGE	Eval seat 0 receives 1 poison counter from Eval seat 1
+414: PLAYER_CONTROL	Eval seat 0 has restored control over themself
+415: PLAYER_CONTROL	Eval seat 1 has restored control over themself
+416: GAME_OUTCOME	Match Duration 0m : 23s
+417: GAME_OUTCOME	Turn 7
+418: GAME_OUTCOME	Eval seat 0 has lost because life total reached 0
+419: GAME_OUTCOME	Eval seat 1 has won because all opponents have lost
+420: MATCH_RESULTS	Eval seat 0: 0 Eval seat 1: 1 
+
+game-006
+
+1: MULLIGAN	Eval seat 0 has kept a hand of 7 cards
+2: MULLIGAN	Eval seat 1 has kept a hand of 7 cards
+3: TURN	Turn 1 (Eval seat 0)
+4: PHASE	Eval seat 0's Untap step
+5: PHASE	Eval seat 0's Upkeep step
+6: PHASE	Eval seat 0's Draw step
+142: MANA	Mountain (116) - {T}: Add {R}.
+143: STACK_ADD	Eval seat 1 cast Jace, Multiverse Architect
+144: EFFECT_REPLACED	Jace, Multiverse Architect enters with four loyalty counters on it.
+145: STACK_RESOLVE	Jace, Multiverse Architect
+146: STACK_ADD	Eval seat 1 activated Jace, Multiverse Architect targeting [Phyrexian Mite Token (212)]
+147: ZONE_CHANGE	Phyrexian Mite Token (212) was put into Exile from Battlefield.
+148: STACK_RESOLVE	Jace, Multiverse Architect (201) - Exile Phyrexian Mite Token (212). Eval seat 1reveals cards from their library until revealing a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of their library in a random order.
+149: PHASE	Eval seat 1's Beginning of Combat Step
+150: PHASE	Eval seat 1's Declare Attackers Step
+170: PHASE	Eval seat 0's Beginning of Combat Step
+171: STACK_ADD	Eval seat 1 triggered Jace, Multiverse Architect
+172: STACK_RESOLVE	At the beginning of combat on each opponent's turn, they may pay {2}. If they don't, creatures they control can't attack Jaces you control this turn. [Phase: Eval seat 0]
+173: PHASE	Eval seat 0's Declare Attackers Step
+190: LAND	Eval seat 1 played Radiant Summit (161)
+191: STACK_ADD	Eval seat 1 activated Jace, Multiverse Architect
+192: STACK_RESOLVE	Jace, Multiverse Architect (201) - Eval seat 1 draws two cards. Eval seat 1 puts a card from their hand on the bottom of their library.
+193: MANA	Turbulent Shore (146) - {T}: Add {W}.
+194: MANA	Fetid Heath (156) - {W/B}, {T}: Add {W}{W}, {W}{B}, or {B}{B}.
+242: PHASE	Eval seat 0's Beginning of Combat Step
+243: STACK_ADD	Eval seat 1 triggered Jace, Multiverse Architect
+244: STACK_RESOLVE	At the beginning of combat on each opponent's turn, they may pay {2}. If they don't, creatures they control can't attack Jaces you control this turn. [Phase: Eval seat 0]
+245: PHASE	Eval seat 0's Declare Attackers Step
+297: PHASE	Eval seat 1's Main phase, postcombat
+298: STACK_ADD	Eval seat 1 activated Jace, Multiverse Architect
+299: STACK_RESOLVE	Jace, Multiverse Architect (201) - Eval seat 1 draws two cards. Eval seat 1 puts a card from their hand on the bottom of their library.
+300: PHASE	Eval seat 1's End step
+301: STACK_ADD	Eval seat 1 triggered Archfiend of Despair
+323: PHASE	Eval seat 0's Beginning of Combat Step
+324: STACK_ADD	Eval seat 1 triggered Jace, Multiverse Architect
+325: MANA	Kher Keep (75) - {T}: Add {C}.
+326: MANA	Caves of Koilos (31) - {T}: Add {C}.
+413: DAMAGE	Eval seat 0 receives 1 poison counter from Eval seat 1
+414: PLAYER_CONTROL	Eval seat 0 has restored control over themself
+415: PLAYER_CONTROL	Eval seat 1 has restored control over themself
+416: GAME_OUTCOME	Match Duration 0m : 27s
+417: GAME_OUTCOME	Turn 7
+418: GAME_OUTCOME	Eval seat 0 has lost because life total reached 0
+419: GAME_OUTCOME	Eval seat 1 has won because all opponents have lost
+420: MATCH_RESULTS	Eval seat 0: 0 Eval seat 1: 1 
+

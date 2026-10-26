@@ -8,6 +8,19 @@ import { assertCleanEngineStatus, classifyChild, isolatedEnvironment, runProcess
 const setup = { schema_version: 1, request_id: 'r1', status: 'ready' };
 const terminal = { schema_version: 1, request_id: 'r1', status: 'terminal', terminal: 'win', winner_seat: 0 };
 
+async function assertProcessStopped(pid) {
+  try { process.kill(pid, 0); }
+  catch (error) { if (error.code === 'ESRCH') return; throw error; }
+  if (process.platform === 'linux') {
+    try {
+      const status = await readFile(`/proc/${pid}/stat`, 'utf8');
+      assert.equal(status.slice(status.lastIndexOf(')') + 2).split(' ')[0], 'Z');
+      return;
+    } catch (error) { if (error.code === 'ENOENT') return; throw error; }
+  }
+  assert.fail(`Process ${pid} is still running`);
+}
+
 test('fixture tampering is rejected before loading', () => {
   assert.throws(() => verifyFixtureHash('a'.repeat(64), 'b'.repeat(64)), /fixture hash mismatch/);
   assert.equal(verifyFixtureHash('a'.repeat(64), 'a'.repeat(64)), true);
@@ -97,6 +110,7 @@ test('missing and invalid startup receipts time out and stop the owned process',
 });
 
 test('reported tree teardown stops an actual descendant as well as the owned PID', async t => {
+  await assert.rejects(assertProcessStopped(process.pid), assert.AssertionError);
   await withChild(`const {spawn} = require('node:child_process');
     const descendant = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {stdio:'ignore'});
     fs.writeFileSync(path.join(dir, 'descendant-pid'), String(descendant.pid));
@@ -106,7 +120,7 @@ test('reported tree teardown stops an actual descendant as well as the owned PID
       assert.equal(result.outcome, 'timed_out');
       assert.equal(result.process_stopped, true);
       t.diagnostic(`descendant teardown process_stopped=${result.process_stopped}, tree_stopped=${result.tree_stopped}`);
-      if (result.tree_stopped) assert.throws(() => process.kill(descendantPid, 0), error => error.code === 'ESRCH');
+      if (result.tree_stopped) await assertProcessStopped(descendantPid);
     } finally {
       try { process.kill(descendantPid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
     }

@@ -12,7 +12,19 @@ The separate evaluation runner must observe natural `Match.startGame` completion
 
 Status: resolved by the user.
 
-The user created [geefuoco/forge](https://github.com/geefuoco/forge). The GitHub connection confirms the repository and owner permissions. The local checkout retains full Card-Forge history, with the user fork as `origin` and Card-Forge as `upstream`. Local credential-manager enumeration was rejected earlier and was not used. No implementation has been pushed yet.
+The user created [geefuoco/forge](https://github.com/geefuoco/forge) and pushed the `neo-forge` branch. It contains the evaluation runner and Jace targeting fix.
+
+## Jace conversion rejected a disposable token
+
+Status: fixed in `ba236861d3957005bb04f53e7722f2ea278e5872`.
+
+The focused decision test reproduced Jace's exile-and-reveal ability returning `TargetingFailed` for a legal disposable token. The card script now uses the existing Polymorph AI hint. The regression covers selecting the token and declining to sacrifice a valuable creature. This fixes those positions. It does not establish overall deck quality.
+
+## Custom desktop launcher omitted upstream Java options
+
+Status: fixed in the baseline launcher.
+
+The prior cloud session reproduced XStream gauntlet deserialization failing before the main frame appeared. The classpath launcher omitted the module-access options in Forge's desktop POM. The launcher now reads those options for the desktop JVM. Headless evaluation keeps its existing arguments. The [baseline report](ai-baseline-report.md) records verification and remaining checks.
 
 ## AI quality requires decision review and human play
 

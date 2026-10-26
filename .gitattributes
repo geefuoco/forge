@@ -1,1 +1,2 @@
 * text=auto
+evaluation/ai/decks/*.dck -text -diff

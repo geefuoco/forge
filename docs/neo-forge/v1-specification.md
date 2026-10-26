@@ -61,7 +61,7 @@ The first technical milestone evaluates Forge before substantial custom UI work.
 6. Provide a runnable baseline for the user to play against. Collect whether the games are challenging and enjoyable and retain the decisions that undermine that experience.
 7. Deliver an evidence-based verdict. Describe which decks and decisions work, the observed weaknesses, and whether targeted AI work is needed. Do not silently narrow the requested deck support or claim strong casual play before that verdict.
 
-This milestone can produce a finding that Forge's current AI is insufficient. That finding requires revisiting the AI plan before investing in a polished interface. No AI-quality or timing result exists yet.
+This milestone can produce a finding that Forge's current AI is insufficient. That finding requires revisiting the AI plan before investing in a polished interface. The [baseline report](ai-baseline-report.md) records completed execution checks and remaining quality work.
 
 ## Feasibility checks for the rest of the product
 
@@ -86,4 +86,4 @@ Use exactly two independent initial verifier agents for pstack swarm verificatio
 
 ## Current state
 
-Requirements discovery and source inspection are complete enough for this draft. There is no upstream fork or product implementation yet. No Site has been created, no deployment has run, and there are no runtime, AI-quality, save/restore, network, or performance results. The remaining defaults and exact release criteria still need review before product implementation.
+The `geefuoco/forge` fork and its `neo-forge` branch contain the engine evaluation runner, two stock Commander fixtures, and a targeted Jace AI fix. The [baseline report](ai-baseline-report.md) records cloud portability and execution evidence. The custom browser client, remote invites, durable saves, and replay remain pending. No Site has been created or deployed. Strong casual AI play and responsiveness targets remain acceptance requirements.

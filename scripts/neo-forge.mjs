@@ -278,19 +278,22 @@ function mavenLauncherArgs(runtime) {
   return ['-classpath', runtime.classworlds, `-Dmaven.multiModuleProjectDirectory=${ROOT}`,
     `-Dmaven.repo.local=${path.join(ROOT, '.tools', 'm2')}`,
     `-Dclassworlds.conf=${path.join(runtime.mavenHome, 'bin', 'm2.conf')}`,
-    `-Dmaven.home=${runtime.mavenHome}`, 'org.codehaus.plexus.classworlds.launcher.Launcher'];
+    `-Dmaven.home=${runtime.mavenHome}`, 'org.codehaus.plexus.classworlds.launcher.Launcher',
+    ...(runtime.mavenSettings ? ['-s', runtime.mavenSettings] : [])];
 }
 
 async function resolveRuntime(toolchain) {
   const javaHome = process.env.NEO_FORGE_JAVA_HOME ?? toolchain.javaHome;
   const mavenHome = process.env.NEO_FORGE_MAVEN_HOME ?? toolchain.mavenHome;
   if (!javaHome || !mavenHome) throw new Error('Set both NEO_FORGE_JAVA_HOME and NEO_FORGE_MAVEN_HOME, or define javaHome and mavenHome in .tools/toolchain.json');
-  const java = path.join(javaHome, 'bin', 'java.exe');
-  const javac = path.join(javaHome, 'bin', 'javac.exe');
+  const executableSuffix = process.platform === 'win32' ? '.exe' : '';
+  const java = path.join(javaHome, 'bin', `java${executableSuffix}`);
+  const javac = path.join(javaHome, 'bin', `javac${executableSuffix}`);
   const boot = path.join(mavenHome, 'boot');
   const classworlds = (await readdir(boot)).find(file => /^plexus-classworlds.*\.jar$/i.test(file));
   if (!classworlds) throw new Error('Maven classworlds jar is missing');
-  const runtime = { java, javac, mavenHome, classworlds: path.join(boot, classworlds) };
+  const runtime = { java, javac, mavenHome, classworlds: path.join(boot, classworlds),
+    mavenSettings: process.env.NEO_FORGE_MAVEN_SETTINGS ?? toolchain.mavenSettings };
   const versions = await Promise.all([
     runProcess(java, ['-version'], { timeoutSeconds: 30 }),
     runProcess(java, [...mavenLauncherArgs(runtime), '-version'], { timeoutSeconds: 30 })]);
@@ -462,6 +465,9 @@ async function play({ planPath = PLAN } = {}) {
   const { plan } = await readPlan(planPath);
   if (plan.ai.monte_carlo === 'standard') throw new Error('Desktop Forge uses the desktop-max simulation budget. Select desktop-max or off for a playtest.');
   const { runtime, classpath } = await ensureBuild(plan.engine_commit, planPath);
+  const desktopPom = await readFile(path.join(ROOT, 'forge-gui-desktop', 'pom.xml'), 'utf8');
+  const desktopOptions = desktopPom.match(/<addopen\.java\.args>([^<]+)<\/addopen\.java\.args>/)?.[1].trim();
+  if (!desktopOptions) throw new Error('Pinned desktop POM is missing addopen.java.args');
   const baseline = path.join(ROOT, '.tools', 'human-baseline');
   const user = path.join(ROOT, '.tools', 'human-baseline', 'profile');
   const cache = path.join(ROOT, '.tools', 'human-baseline', 'cache');
@@ -480,7 +486,7 @@ async function play({ planPath = PLAN } = {}) {
   await writeJson(requestPath, { schema_version: 1, mode: 'play', id: 'baseline', seed: 0, seats: [], profile: 'Default',
     monte_carlo: plan.ai.monte_carlo, ai_timeout_seconds: plan.ai.timeout_seconds, output_directory: user,
     assets_directory: assets, resource_root: path.join(ROOT, 'forge-gui', 'res') });
-  const child = await superviseProcess(runtime.java, ['-Djava.awt.headless=false', '-cp', classpath, 'CommanderEval', '--play', requestPath], {
+  const child = await superviseProcess(runtime.java, [...desktopOptions.split(/\s+/), '-Djava.awt.headless=false', '-cp', classpath, 'CommanderEval', '--play', requestPath], {
     cwd: ROOT, env: { ...process.env, APPDATA: path.join(user, 'appdata'), LOCALAPPDATA: path.join(cache, 'local'), TEMP: path.join(user, 'tmp'), TMP: path.join(user, 'tmp') },
     windowsHide: false, detachAfterStartup: true, startupSeconds: 120,
     startupReceipt: { file: startupReceipt, requestId: 'baseline', status: 'desktop-started', matchPid: true },

@@ -13,7 +13,7 @@ The `.dck` files are byte-identical copies from Card-Forge/forge at the commit r
 | [World Shaper](decks/world-shaper.dck) | Hearthhull, the Worldseed | [Wizards decklist](https://magic.wizards.com/en/news/announcements/edge-of-eternities-commander-decklists) |
 | [Multiverse Reforged](decks/multiverse-reforged.dck) | Jace, Multiverse Architect | [Wizards decklist](https://magic.wizards.com/en/news/announcements/reality-fracture-multiverse-reforged-commander-decklist) |
 
-A structural check found 99 main-deck cards and one expected commander in each file. The copies match the pinned upstream bytes. This does not establish card loading, Commander legality, complete card support, successful gameplay, or competent AI decisions. No runtime evaluation has run.
+A structural check found 99 main-deck cards and one expected commander in each file. Engine validation loads all 100 cards and accepts both Commander setups. The copies match the pinned upstream bytes. The [baseline report](../../docs/neo-forge/ai-baseline-report.md) records execution evidence and remaining AI-quality checks. Validation does not establish complete card support or competent decisions.
 
 ## Proposed decision cases
 

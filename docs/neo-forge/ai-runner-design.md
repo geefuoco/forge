@@ -18,11 +18,15 @@ Every child receives a unique writable profile, cache, temporary directory, and 
 
 Build provenance identifies the full upstream SHA, unchanged upstream build inputs, harness source hashes, actual JAR and runner hashes, fixture hashes, selected plan, runtime versions, and AI settings. Local documentation and harness changes are allowed and recorded; they must not masquerade as a clean whole repository. Rebuild rather than reusing unverified stale outputs. A seed fixes input randomness but does not guarantee identical Monte Carlo decisions under different timing and scheduling.
 
+The runtime record contains native Java and compiler paths, Maven home, the classworlds JAR, and optional Maven settings. Version checks and package builds use the same settings. Machine paths stay in ignored toolchain configuration. The cloud setup command connects that configuration to installed tools and the shared dependency cache. Fixture attributes disable line-ending conversion to preserve manifest hashes.
+
+The desktop JVM receives the module-access options declared by the pinned desktop POM. The classpath launch bypasses Forge's generated platform launcher, so it supplies those arguments itself. Headless evaluation does not use them.
+
 ## Synthesis decision
 
-The three architect candidates and cross-judge are recorded under `.audit/architecture/`. Candidate B is the base because one external game process gives strong failure classification and isolation while preserving upstream. Candidate A contributes strict loaded-card comparison and explicit asset/profile isolation. Candidate C's additional upstream classes and in-process cancellation are rejected as unnecessary for this bounded milestone.
+The original design records three architect candidates and a cross-judge under local `.audit/architecture/`. Those review artifacts are unavailable in this restored workspace. The recorded decision selects Candidate B because one external game process gives strong failure classification and isolation while preserving upstream. Candidate A contributes strict loaded-card comparison and explicit asset/profile isolation. Candidate C's additional upstream classes and in-process cancellation are rejected as unnecessary for this bounded milestone.
 
-Node replaces the candidates' PowerShell supervisor proposal. Node 22 is already available, has argument-array process APIs and a built-in test runner, and removes shell quoting from normal Java execution. The cross-judge accepted this adaptation in `.audit/architecture/judge.md`. Keep one command module and one Java class with private helpers; do not introduce a framework or a new reactor module.
+Node replaces the candidates' PowerShell supervisor proposal. Node 22 is already available, has argument-array process APIs and a built-in test runner, and removes shell quoting from normal Java execution. The original design records cross-judge acceptance in the unavailable `.audit/architecture/judge.md`. Current runtime verification is in the [baseline report](ai-baseline-report.md). Keep one command module and one Java class with private helpers; do not introduce a framework or a new reactor module.
 
 The Model the Domain principle determines the outcome records. Separate Before Serializing Shared State determines per-game JVMs and single ownership of each receipt. Build the Lever determines the repeatable command. Prove It Works determines real startup, timeout, bad-input, and natural-completion checks.
 

@@ -1,0 +1,373 @@
+package forge.browser;
+
+import com.google.gson.*;
+import com.sun.net.httpserver.*;
+import forge.GuiDesktop;
+import forge.deck.*;
+import forge.game.*;
+import forge.game.card.CardView;
+import forge.game.player.*;
+import forge.game.spellability.StackItemView;
+import forge.game.zone.ZoneType;
+import forge.gamemodes.match.HostedMatch;
+import forge.gamemodes.net.*;
+import forge.gamemodes.net.event.*;
+import forge.gui.GuiBase;
+import forge.interfaces.IGameController;
+import forge.localinstance.properties.ForgePreferences.FPref;
+import forge.model.FModel;
+import forge.player.GamePlayerUtil;
+import forge.player.LobbyPlayerHuman;
+import forge.util.BuildInfo;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
+import java.util.*;
+import java.util.concurrent.*;
+
+public final class Bridge {
+    static final Gson JSON = new Gson();
+    static final int LIMIT = 1_000_000;
+    final String origin, token;
+    final HttpServer server;
+    volatile MatchSession match;
+
+    Bridge(String origin, int port) throws Exception {
+        URI site = URI.create(origin);
+        boolean localHttp = "http".equals(site.getScheme()) && site.getHost() != null && Set.of("localhost", "127.0.0.1", "::1", "[::1]").contains(site.getHost());
+        if ((!"https".equals(site.getScheme()) && !localHttp) || site.getHost() == null || site.getUserInfo() != null ||
+                site.getQuery() != null || site.getFragment() != null || !(site.getPath().isEmpty() || site.getPath().equals("/")))
+            throw new IllegalArgumentException("Origin must be HTTPS, or HTTP on loopback, without a path");
+        this.origin = origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin;
+        byte[] bytes = new byte[32]; new SecureRandom().nextBytes(bytes);
+        token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        server = HttpServer.create(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 0);
+        server.createContext("/api/v1/", this::handle);
+        server.setExecutor(Executors.newCachedThreadPool());
+    }
+
+    void handle(HttpExchange x) throws IOException {
+        try {
+            String host = x.getRequestHeaders().getFirst("Host");
+            String expectedHost = "127.0.0.1:" + server.getAddress().getPort();
+            String requestOrigin = x.getRequestHeaders().getFirst("Origin");
+            if (!expectedHost.equals(host) || !origin.equals(requestOrigin)) { reply(x, 403, error("Origin or Host rejected")); return; }
+            Headers h = x.getResponseHeaders();
+            h.set("Access-Control-Allow-Origin", origin); h.set("Vary", "Origin");
+            h.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+            h.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            h.set("Access-Control-Allow-Private-Network", "true");
+            h.set("Cache-Control", "no-store");
+            if (x.getRequestMethod().equals("OPTIONS")) { x.sendResponseHeaders(204, -1); return; }
+            String auth = x.getRequestHeaders().getFirst("Authorization");
+            if (auth == null || !MessageDigest.isEqual(("Bearer " + token).getBytes(StandardCharsets.UTF_8), auth.getBytes(StandardCharsets.UTF_8))) {
+                reply(x, 401, error("Pairing token rejected")); return;
+            }
+            String path = x.getRequestURI().getPath(), method = x.getRequestMethod();
+            if (method.equals("GET") && path.equals("/api/v1/status")) {
+                reply(x, 200, map("schemaVersion", 1, "status", "ready", "engine", "Forge", "engineVersion", BuildInfo.getVersionString()));
+            } else if (method.equals("GET") && path.equals("/api/v1/match")) {
+                MatchSession current = match;
+                replyRaw(x, 200, current == null ? JSON.toJson(map("schemaVersion", 1, "status", "idle", "revision", 0, "players", List.of(), "stack", List.of())) : current.snapshot);
+            } else if (method.equals("POST") && path.equals("/api/v1/matches")) {
+                JsonObject body = body(x);
+                synchronized (this) {
+                    if (match != null && !match.terminal()) { reply(x, 409, error("A match is already active")); return; }
+                    match = new MatchSession(body);
+                    new Thread(match::start, "forge-bridge-start").start();
+                }
+                replyRaw(x, 202, match.snapshot);
+            } else if (method.equals("POST") && path.equals("/api/v1/action")) {
+                MatchSession current = match;
+                if (current == null) { reply(x, 409, error("No active match")); return; }
+                String problem = current.submit(body(x));
+                reply(x, problem == null ? 202 : 409, problem == null ? map("schemaVersion", 1, "accepted", true) : error(problem));
+            } else reply(x, 404, error("Unknown endpoint"));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            reply(x, 400, error(e.getMessage() == null ? "Invalid request" : e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace(); reply(x, 500, error("Bridge request failed"));
+        } finally { x.close(); }
+    }
+    static JsonObject body(HttpExchange x) throws IOException {
+        byte[] data = x.getRequestBody().readNBytes(LIMIT + 1);
+        if (data.length > LIMIT) throw new IllegalArgumentException("Request too large");
+        try { return JsonParser.parseString(new String(data, StandardCharsets.UTF_8)).getAsJsonObject(); }
+        catch (RuntimeException e) { throw new IllegalArgumentException("Expected a JSON object"); }
+    }
+    static Map<String,Object> map(Object... pairs) {
+        Map<String,Object> m = new LinkedHashMap<>();
+        for (int i=0; i<pairs.length; i+=2) m.put((String)pairs[i], pairs[i+1]);
+        return m;
+    }
+    static Map<String,Object> error(String s) { return map("schemaVersion", 1, "error", s); }
+    static void reply(HttpExchange x, int status, Object data) throws IOException { replyRaw(x, status, JSON.toJson(data)); }
+    static void replyRaw(HttpExchange x, int status, String data) throws IOException {
+        byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+        x.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        x.sendResponseHeaders(status, bytes.length); x.getResponseBody().write(bytes);
+    }
+    static String string(JsonObject o, String key) {
+        if (!o.has(key) || !o.get(key).isJsonPrimitive() || !o.get(key).getAsJsonPrimitive().isString()) throw new IllegalArgumentException("Missing " + key);
+        return o.get(key).getAsString();
+    }
+    static Deck deck(JsonObject json) {
+        Deck deck = new Deck(string(json, "name"));
+        if (!json.has("entries") || !json.get("entries").isJsonArray()) throw new IllegalArgumentException("Deck needs entries");
+        if (json.getAsJsonArray("entries").size() > 300) throw new IllegalArgumentException("Too many deck entries");
+        for (JsonElement element : json.getAsJsonArray("entries")) {
+            JsonObject entry = element.getAsJsonObject();
+            String name = string(entry, "name"), section = string(entry, "section");
+            int quantity = entry.get("quantity").getAsInt();
+            if (quantity < 1 || quantity > 100) throw new IllegalArgumentException("Invalid quantity for " + name);
+            var card = FModel.getMagicDb().getCommonCards().getCard(name);
+            if (card == null) throw new IllegalArgumentException("Unknown card: " + name);
+            DeckSection s = switch (section) { case "main" -> DeckSection.Main; case "commander" -> DeckSection.Commander; default -> throw new IllegalArgumentException("Unknown deck section"); };
+            deck.getOrCreate(s).add(card, quantity);
+        }
+        String issue = DeckFormat.Commander.getDeckConformanceProblem(deck);
+        if (issue != null) throw new IllegalArgumentException(deck.getName() + ": " + issue);
+        return deck;
+    }
+    static final class InlineGui extends GuiDesktop {
+        @Override public void invokeInEdtNow(Runnable r) { r.run(); }
+        @Override public void invokeInEdtLater(Runnable r) { r.run(); }
+        @Override public void invokeInEdtAndWait(Runnable r) { r.run(); }
+        @Override public boolean isGuiThread() { return false; }
+    }
+    static final class MatchSession implements IRemote {
+        final String id = UUID.randomUUID().toString();
+        final JsonObject request;
+        final BlockingQueue<JsonObject> commands = new LinkedBlockingQueue<>();
+        final Map<String,CardView> cards = new HashMap<>();
+        final Map<String,PlayerView> players = new HashMap<>();
+        final Map<String,Object> choices = new LinkedHashMap<>();
+        volatile String snapshot;
+        volatile String status = "starting";
+        static boolean initialized;
+        String error, message = "", promptId, promptKind;
+        Map<String,Object> prompt;
+        PlayerView human;
+        PumpGui gui;
+        long revision;
+        boolean inFlight;
+        MatchSession(JsonObject request) { this.request = request; publish(); }
+        synchronized boolean terminal() { return status.equals("finished") || status.equals("error"); }
+        synchronized String submit(JsonObject action) {
+            if (terminal()) return "Match is over";
+            if (!id.equals(string(action, "matchId"))) return "Stale match";
+            String kind = string(action, "kind");
+            if (kind.equals("concede")) {
+                if (action.has("revision") && action.get("revision").getAsLong() != revision) return "Stale revision";
+                if (action.has("promptId") && !Objects.equals(promptId, string(action, "promptId"))) return "Stale prompt";
+                commands.offer(action.deepCopy());
+                return null;
+            }
+            if (!action.has("revision") || action.get("revision").getAsLong() != revision) return "Stale revision";
+            if (promptId == null || !promptId.equals(string(action, "promptId"))) return "Stale prompt";
+            if (inFlight) return "An action is already in flight";
+            if (!Set.of("ok", "cancel", "card", "player", "choice", "number", "concede").contains(kind)) return "Unknown action";
+            if (!kind.equals("concede")) {
+                if (promptKind.equals("priority") && !Set.of("ok", "cancel", "card", "player").contains(kind)) return "Action does not match the prompt";
+                if (promptKind.equals("confirm") && !Set.of("ok", "cancel").contains(kind)) return "Action does not match the prompt";
+                if ((promptKind.equals("choices") || promptKind.equals("order")) && !kind.equals("choice")) return "Action does not match the prompt";
+                if (kind.equals("choice")) {
+                    if (!action.has("choiceIds") || !action.get("choiceIds").isJsonArray()) return "Choices are required";
+                    JsonArray ids = action.getAsJsonArray("choiceIds");
+                    if (ids.size() < (int)prompt.get("min") || ids.size() > (int)prompt.get("max")) return "Wrong number of choices";
+                    Set<String> unique = new HashSet<>();
+                    for (JsonElement v : ids) {
+                        if (!v.isJsonPrimitive() || !v.getAsJsonPrimitive().isString() || !choices.containsKey(v.getAsString()) || !unique.add(v.getAsString())) return "Invalid choice";
+                    }
+                }
+            }
+            if (kind.equals("card") && !cards.containsKey(string(action, "cardId"))) return "Unknown card";
+            if (kind.equals("player") && !players.containsKey(string(action, "playerId"))) return "Unknown player";
+            inFlight = true; commands.offer(action.deepCopy()); return null;
+        }
+        void start() {
+            try {
+                synchronized (MatchSession.class) {
+                    if (!initialized) {
+                        GuiBase.setInterface(new InlineGui());
+                        GuiBase.setUsingAppDirectory(true);
+                        FModel.initialize(null, p -> { p.setPref(FPref.LOAD_CARD_SCRIPTS_LAZILY, false); p.setPref(FPref.UI_LANGUAGE, "en-US"); p.setPref(FPref.PLAYER_NAME, "You"); p.setPref(FPref.UI_ENABLE_MUSIC, false); p.setPref(FPref.UI_ENABLE_SOUNDS, false); return null; });
+                        initialized = true;
+                    }
+                }
+                FModel.getPreferences().setPref(FPref.UI_RECORD_REPLAYS, false);
+                FModel.getPreferences().setPref(FPref.UI_SHOW_ACTIONABLE_HIGHLIGHTS, false);
+                Deck h = deck(request.getAsJsonObject("humanDeck")), a = deck(request.getAsJsonObject("aiDeck"));
+                RegisteredPlayer hp = RegisteredPlayer.forCommander(h).setPlayer(new LobbyPlayerHuman("You"));
+                RegisteredPlayer ap = RegisteredPlayer.forCommander(a).setPlayer(GamePlayerUtil.createAiPlayer("CPU"));
+                gui = new PumpGui(this);
+                GameRules rules = new GameRules(GameType.Commander);
+                rules.setGamesPerMatch(1);
+                rules.setWarnAboutAICards(false);
+                new HostedMatch().startMatch(rules, Set.of(GameType.Commander), List.of(hp, ap), hp, gui);
+            } catch (Throwable t) { fail(t); }
+        }
+        synchronized void fail(Throwable t) {
+            status = "error"; error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+            prompt = null; promptId = null; inFlight = false; publish();
+            t.printStackTrace();
+        }
+        synchronized void publish() {
+            revision++;
+            Map<String,Object> out = map("schemaVersion", 1, "matchId", id, "revision", revision, "status", status,
+                    "turn", 0, "phase", "", "activePlayerId", null, "players", List.of(), "stack", List.of());
+            if (error != null) out.put("error", error);
+            GameView view = gui == null ? null : gui.getGameView();
+            if (view != null) {
+                out.put("turn", view.getTurn()); out.put("phase", String.valueOf(view.getPhase()));
+                if (view.getPlayerTurn() != null) out.put("activePlayerId", pid(view.getPlayerTurn()));
+                cards.clear(); players.clear();
+                List<Object> ps = new ArrayList<>();
+                if (view.getPlayers() != null) for (PlayerView p : view.getPlayers()) {
+                    players.put(pid(p), p);
+                    Map<String,Object> player = map("id", pid(p), "name", p.getName(), "life", p.getLife(),
+                            "handCount", p.getZoneSize(ZoneType.Hand), "libraryCount", p.getZoneSize(ZoneType.Library),
+                            "battlefield", zone(p.getBattlefield()), "graveyard", zone(p.getGraveyard()),
+                            "exile", zone(p.getExile()), "command", zone(p.getCommand()));
+                    if (p.equals(human)) player.put("hand", zone(p.getHand()));
+                    ps.add(player);
+                }
+                out.put("players", ps);
+                List<Object> stack = new ArrayList<>();
+                if (view.getStack() != null) for (StackItemView item : view.getStack()) stack.add(map("id", String.valueOf(item.getId()), "label", item.toString()));
+                out.put("stack", stack);
+                if (view.isGameOver()) { status = "finished"; out.put("status", status); }
+            }
+            if (prompt != null) out.put("prompt", prompt);
+            snapshot = JSON.toJson(out);
+        }
+        String pid(PlayerView p) { return String.valueOf(p.getId()); }
+        List<Object> zone(Iterable<CardView> source) {
+            List<Object> result = new ArrayList<>();
+            for (CardView c : source) {
+                String cid = String.valueOf(c.getId()); cards.put(cid, c);
+                if (!c.canBeShownTo(human)) { result.add(map("id", cid, "name", "Face-down card", "tapped", c.isTapped())); continue; }
+                var state = c.getCurrentState();
+                result.add(map("id", cid, "name", c.getName(), "mana", String.valueOf(state.getManaCost()),
+                        "type", String.valueOf(state.getType()), "text", c.getText(), "tapped", c.isTapped()));
+            }
+            return result;
+        }
+        synchronized void newPrompt(String kind, String text) {
+            promptId = UUID.randomUUID().toString(); promptKind = kind;
+            prompt = map("id", promptId, "kind", kind, "message", text); inFlight = false;
+        }
+        @Override public void send(NetEvent event) {
+            if (!(event instanceof GuiGameEvent)) return;
+            GuiGameEvent e = (GuiGameEvent) event; Object[] a = e.getObjects();
+            synchronized (this) {
+                switch (e.getMethod()) {
+                    case openView -> { var ps = (Iterable<PlayerView>) a[0]; human = ps.iterator().next(); status = "playing"; }
+                    case showPromptMessage -> { message = String.valueOf(a[1]); if (prompt != null && "priority".equals(promptKind)) prompt.put("message", message); }
+                    case updateButtons -> {
+                        if (human != null && human.equals(a[0])) {
+                            newPrompt("priority", message);
+                            prompt.put("buttons", List.of(map("id", "ok", "label", a[1], "enabled", a[3]), map("id", "cancel", "label", a[2], "enabled", a[4])));
+                        }
+                    }
+                    case afterGameEnd, finishGame -> { status = "finished"; prompt = null; promptId = null; }
+                    default -> { }
+                }
+                publish();
+            }
+        }
+        @Override public Object sendAndWait(IdentifiableNetEvent event) {
+            GuiGameEvent e = (GuiGameEvent) event; Object[] a = e.getObjects();
+            try {
+                synchronized (this) {
+                    choices.clear();
+                    switch (e.getMethod()) {
+                        case getAbilityToPlay -> choicePrompt("Choose an ability", (List<?>)a[1], 1, 1);
+                        case getChoices -> choicePrompt(String.valueOf(a[0]), (List<?>)a[3], (int)a[1], (int)a[2]);
+                        case order -> {
+                            List<Object> all = new ArrayList<>((List<?>)a[4]);
+                            if (a[5] != null) all.addAll((List<?>)a[5]);
+                            int remainingMin = (int)a[2], remainingMax = (int)a[3];
+                            int min = remainingMax < 0 ? 0 : Math.max(0, all.size() - remainingMax);
+                            int max = remainingMax < 0 ? all.size() : all.size() - remainingMin;
+                            choicePrompt(String.valueOf(a[0]) + " — " + String.valueOf(a[1]), all, min, max);
+                            promptKind = "order"; prompt.put("kind", "order");
+                        }
+                        case chooseSingleEntityForEffect -> choicePrompt(String.valueOf(a[0]), (List<?>)a[1], (boolean)a[3] ? 0 : 1, 1);
+                        case chooseEntitiesForEffect -> choicePrompt(String.valueOf(a[0]), (List<?>)a[1], (int)a[2], (int)a[3]);
+                        case confirm -> { newPrompt("confirm", String.valueOf(a[1])); prompt.put("buttons", buttons()); }
+                        case showConfirmDialog -> { newPrompt("confirm", String.valueOf(a[0])); prompt.put("buttons", buttons()); }
+                        case showOptionDialog -> choicePrompt(String.valueOf(a[0]), (List<?>)a[3], 1, 1);
+                        default -> { newPrompt("unsupported", "This decision is not supported by the bridge: " + e.getMethod()); status = "error"; error = String.valueOf(prompt.get("message")); publish(); throw new IllegalStateException(error); }
+                    }
+                    publish();
+                }
+                while (true) {
+                    JsonObject action = commands.take();
+                    synchronized (this) {
+                        String kind = string(action, "kind");
+                        if (kind.equals("concede")) { gui.getGameController(human).concede(); status = "finished"; prompt = null; promptId = null; publish(); throw new CancellationException("Player conceded"); }
+                        if (promptKind.equals("confirm") && (kind.equals("ok") || kind.equals("cancel"))) { prompt = null; promptId = null; inFlight = false; publish(); return kind.equals("ok"); }
+                        if ((promptKind.equals("choices") || promptKind.equals("order")) && kind.equals("choice")) {
+                            List<Object> selected = new ArrayList<>();
+                            JsonArray ids = action.has("choiceIds") && action.get("choiceIds").isJsonArray() ? action.getAsJsonArray("choiceIds") : new JsonArray();
+                            Set<String> unique = new HashSet<>();
+                            for (JsonElement v : ids) { String k = v.getAsString(); if (!choices.containsKey(k) || !unique.add(k)) { selected.clear(); break; } selected.add(choices.get(k)); }
+                            int min = (int)prompt.get("min"), max = (int)prompt.get("max");
+                            if (selected.size() >= min && selected.size() <= max) {
+                                prompt = null; promptId = null; inFlight = false; publish();
+                                return switch (e.getMethod()) {
+                                    case getAbilityToPlay, chooseSingleEntityForEffect -> selected.isEmpty() ? null : selected.get(0);
+                                    case showOptionDialog -> selected.isEmpty() ? -1 : ((List<?>)a[3]).indexOf(selected.get(0));
+                                    case order -> new forge.gui.interfaces.IGuiGame.OrderResult<>(selected, false);
+                                    default -> selected;
+                                };
+                            }
+                        }
+                        inFlight = false; publish();
+                    }
+                }
+            } catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw new IllegalStateException("Bridge interrupted", ex); }
+        }
+        List<Object> buttons() { return List.of(map("id", "ok", "label", "Yes", "enabled", true), map("id", "cancel", "label", "No", "enabled", true)); }
+        void choicePrompt(String text, List<?> options, int min, int max) {
+            newPrompt("choices", text); List<Object> list = new ArrayList<>();
+            for (Object option : options) { String key = UUID.randomUUID().toString(); choices.put(key, option); String label = option instanceof CardView && !((CardView)option).canBeShownTo(human) ? "Face-down card" : String.valueOf(option); list.add(map("id", key, "label", label)); }
+            prompt.put("min", min); prompt.put("max", max); prompt.put("choices", list);
+        }
+        void pump(CountDownLatch done) {
+            try {
+                while (done.getCount() > 0) {
+                    JsonObject action = commands.take();
+                    String kind = string(action, "kind");
+                    String answeredPrompt = kind.equals("concede") ? null : string(action, "promptId");
+                    IGameController controller = gui.getGameController(human);
+                    switch (kind) {
+                        case "ok" -> controller.selectButtonOk();
+                        case "cancel" -> controller.selectButtonCancel();
+                        case "card" -> controller.selectCard(cards.get(string(action, "cardId")), null, null);
+                        case "player" -> controller.selectPlayer(players.get(string(action, "playerId")), null);
+                        case "concede" -> controller.concede();
+                        default -> { }
+                    }
+                    synchronized (this) {
+                        if (Objects.equals(answeredPrompt, promptId) && inFlight) { inFlight = false; publish(); }
+                    }
+                }
+            } catch (CancellationException e) { throw e; }
+            catch (Throwable t) { fail(t); throw new IllegalStateException(t); }
+        }
+    }
+    static final class PumpGui extends ProtocolGuiGame {
+        final MatchSession match;
+        PumpGui(MatchSession match) { super(match); this.match = match; }
+        @Override public void awaitInput(CountDownLatch done) { match.pump(done); }
+    }
+    public static void main(String[] args) throws Exception {
+        if (args.length != 1) throw new IllegalArgumentException("Usage: Bridge https://your-site-origin");
+        Bridge bridge = new Bridge(args[0], 8787); bridge.server.start();
+        System.out.println("Forge bridge listening at http://127.0.0.1:8787");
+        System.out.println("Pairing token: " + bridge.token);
+    }
+}

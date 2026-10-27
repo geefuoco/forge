@@ -8,6 +8,29 @@
   --green: #9cc9aa;
   --gold: #c49a6c;
 }
+.allocation-targets {
+  display: grid;
+  gap: 10px;
+}
+.allocation-target {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: space-between;
+}
+.allocation-target label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.allocation-target small {
+  display: block;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.allocation-target input {
+  width: 100px;
+  flex-shrink: 0;
+}
 * {
   box-sizing: border-box;
 }

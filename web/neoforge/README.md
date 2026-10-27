@@ -37,4 +37,10 @@ node --check dist/app.js
 python3 -m py_compile tools/generate-catalog.py
 ```
 
+With Python Playwright and Chromium at `/usr/bin/chromium`, run the allocation editor checks. The script serves the current `dist` directory and supplies mock companion decisions.
+
+```sh
+python3 tools/verify-allocations.py
+```
+
 Magic: The Gathering is a trademark of Wizards of the Coast. This fan project is not affiliated with Wizards of the Coast.

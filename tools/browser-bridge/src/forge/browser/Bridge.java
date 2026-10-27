@@ -136,6 +136,51 @@ public final class Bridge {
         @Override public void invokeInEdtAndWait(Runnable r) { r.run(); }
         @Override public boolean isGuiThread() { return false; }
     }
+    record AllocationTarget(String id, Object entity, String label, int min, int max, int lethal, boolean defender) {
+        AllocationTarget(Object entity, String label, int min, int max, int lethal, boolean defender) {
+            this(UUID.randomUUID().toString(), entity, label, min, max, lethal, defender);
+        }
+        Map<String,Object> view() {
+            return map("id", id, "label", label, "min", min, "max", max, "lethal", lethal, "defender", defender);
+        }
+    }
+    record Allocation(String kind, int total, String amountLabel, List<AllocationTarget> targets,
+                      boolean ordered, boolean divideFreely, boolean maySkip) {
+        Map<Object,Integer> decode(JsonObject action) {
+            if (!action.has("allocations") || !action.get("allocations").isJsonArray())
+                throw new IllegalArgumentException("Assign an amount to every target");
+            JsonArray entries = action.getAsJsonArray("allocations");
+            if (entries.size() != targets.size()) throw new IllegalArgumentException("Assign an amount to every target");
+            Map<String,Integer> amounts = new HashMap<>();
+            for (JsonElement entry : entries) {
+                if (!entry.isJsonObject()) throw new IllegalArgumentException("Invalid allocation");
+                JsonObject value = entry.getAsJsonObject();
+                String id = string(value, "id");
+                JsonElement amount = value.get("amount");
+                if (amount == null || !amount.isJsonPrimitive() || !amount.getAsJsonPrimitive().isNumber())
+                    throw new IllegalArgumentException("Amounts must be whole numbers");
+                int number;
+                try { number = amount.getAsBigDecimal().intValueExact(); }
+                catch (ArithmeticException | NumberFormatException e) { throw new IllegalArgumentException("Amounts must be whole numbers within range"); }
+                if (amounts.putIfAbsent(id, number) != null) throw new IllegalArgumentException("Duplicate allocation target");
+            }
+            Map<Object,Integer> result = new LinkedHashMap<>();
+            long assigned = 0;
+            boolean earlierBelowLethal = false;
+            for (AllocationTarget target : targets) {
+                Integer amount = amounts.get(target.id());
+                if (amount == null) throw new IllegalArgumentException("Unknown or missing allocation target");
+                if (amount < target.min() || amount > target.max()) throw new IllegalArgumentException("Amount outside the allowed range for " + target.label());
+                if (kind.equals("combat") && !divideFreely && earlierBelowLethal && amount > 0 && (ordered || target.defender()))
+                    throw new IllegalArgumentException(target.defender() ? "Assign lethal damage to every blocker before the defender" : "Assign lethal damage to earlier blockers first");
+                if (!target.defender()) earlierBelowLethal |= amount < target.lethal();
+                assigned += amount;
+                result.put(target.entity(), amount);
+            }
+            if (assigned != total) throw new IllegalArgumentException("Assign exactly " + total + " " + amountLabel);
+            return result;
+        }
+    }
     static final class MatchSession implements IRemote {
         final String id = UUID.randomUUID().toString();
         final JsonObject request;
@@ -148,6 +193,7 @@ public final class Bridge {
         static boolean initialized;
         String error, message = "", promptId, promptKind;
         Map<String,Object> prompt;
+        Allocation allocation;
         PlayerView human;
         PumpGui gui;
         long revision;
@@ -167,6 +213,15 @@ public final class Bridge {
             if (!action.has("revision") || action.get("revision").getAsLong() != revision) return "Stale revision";
             if (promptId == null || !promptId.equals(string(action, "promptId"))) return "Stale prompt";
             if (inFlight) return "An action is already in flight";
+            if (promptKind.equals("allocation")) {
+                if (kind.equals("skip")) {
+                    if (!allocation.maySkip()) return "This assignment cannot be skipped";
+                } else if (kind.equals("allocation")) {
+                    try { allocation.decode(action); }
+                    catch (IllegalArgumentException e) { return e.getMessage(); }
+                } else return "Action does not match the prompt";
+                inFlight = true; commands.offer(action.deepCopy()); return null;
+            }
             if (!Set.of("ok", "cancel", "card", "player", "choice", "number", "concede").contains(kind)) return "Unknown action";
             if (!kind.equals("concede")) {
                 if (promptKind.equals("priority") && !Set.of("ok", "cancel", "card", "player").contains(kind)) return "Action does not match the prompt";
@@ -256,6 +311,7 @@ public final class Bridge {
         }
         synchronized void newPrompt(String kind, String text) {
             promptId = UUID.randomUUID().toString(); promptKind = kind;
+            allocation = null;
             prompt = map("id", promptId, "kind", kind, "message", text); inFlight = false;
         }
         @Override public void send(NetEvent event) {
@@ -299,6 +355,8 @@ public final class Bridge {
                         case confirm -> { newPrompt("confirm", String.valueOf(a[1])); prompt.put("buttons", buttons()); }
                         case showConfirmDialog -> { newPrompt("confirm", String.valueOf(a[0])); prompt.put("buttons", buttons()); }
                         case showOptionDialog -> choicePrompt(String.valueOf(a[0]), (List<?>)a[3], 1, 1);
+                        case assignCombatDamage -> combatPrompt((CardView)a[0], (List<CardView>)a[1], (int)a[2], (GameEntityView)a[3], (boolean)a[4], (boolean)a[5]);
+                        case assignGenericAmount -> genericPrompt((CardView)a[0], (Map<Object,Integer>)a[1], (int)a[2], (boolean)a[3], String.valueOf(a[4]));
                         default -> { newPrompt("unsupported", "This decision is not supported by the bridge: " + e.getMethod()); status = "error"; error = String.valueOf(prompt.get("message")); publish(); throw new IllegalStateException(error); }
                     }
                     publish();
@@ -308,6 +366,11 @@ public final class Bridge {
                     synchronized (this) {
                         String kind = string(action, "kind");
                         if (kind.equals("concede")) { gui.getGameController(human).concede(); status = "finished"; prompt = null; promptId = null; publish(); throw new CancellationException("Player conceded"); }
+                        if (promptKind.equals("allocation")) {
+                            Map<Object,Integer> result = kind.equals("skip") ? null : allocation.decode(action);
+                            prompt = null; promptId = null; allocation = null; inFlight = false; publish();
+                            return result;
+                        }
                         if (promptKind.equals("confirm") && (kind.equals("ok") || kind.equals("cancel"))) { prompt = null; promptId = null; inFlight = false; publish(); return kind.equals("ok"); }
                         if ((promptKind.equals("choices") || promptKind.equals("order")) && kind.equals("choice")) {
                             List<Object> selected = new ArrayList<>();
@@ -331,6 +394,38 @@ public final class Bridge {
             } catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw new IllegalStateException("Bridge interrupted", ex); }
         }
         List<Object> buttons() { return List.of(map("id", "ok", "label", "Yes", "enabled", true), map("id", "cancel", "label", "No", "enabled", true)); }
+        String allocationLabel(Object entity) {
+            if (entity instanceof CardView card) return card.canBeShownTo(human) ? card.getName() : "Face-down card";
+            return String.valueOf(entity);
+        }
+        void allocationPrompt(String message, Allocation value) {
+            newPrompt("allocation", message); allocation = value;
+            prompt.putAll(map("allocationKind", value.kind(), "total", value.total(), "amountLabel", value.amountLabel(),
+                    "ordered", value.ordered(), "divideFreely", value.divideFreely(), "maySkip", value.maySkip(),
+                    "targets", value.targets().stream().map(AllocationTarget::view).toList()));
+        }
+        void combatPrompt(CardView source, List<CardView> blockers, int damage, GameEntityView defender, boolean overrideOrder, boolean maySkip) {
+            var state = source.getCurrentState();
+            boolean freely = state.hasDivideDamage() && overrideOrder;
+            List<AllocationTarget> targets = new ArrayList<>();
+            for (CardView blocker : blockers) {
+                int lethal = Math.max(0, blocker.getLethalDamage());
+                if (blocker.getCurrentState().isPlaneswalker()) lethal = Math.max(0, Integer.parseInt(blocker.getCurrentState().getLoyalty()));
+                else if (state.hasDeathtouch()) lethal = Math.min(lethal, 1);
+                targets.add(new AllocationTarget(blocker, allocationLabel(blocker), 0, damage, lethal, false));
+            }
+            if (defender != null && (state.hasTrample() || freely))
+                targets.add(new AllocationTarget(null, allocationLabel(defender), 0, damage, 0, true));
+            allocationPrompt("Assign combat damage from " + allocationLabel(source),
+                    new Allocation("combat", damage, "damage", List.copyOf(targets), !overrideOrder, freely, maySkip));
+        }
+        void genericPrompt(CardView source, Map<Object,Integer> affected, int amount, boolean atLeastOne, String label) {
+            List<AllocationTarget> targets = new ArrayList<>();
+            for (var target : affected.entrySet()) targets.add(new AllocationTarget(target.getKey(), allocationLabel(target.getKey()),
+                    atLeastOne ? 1 : 0, target.getValue() == null ? amount : target.getValue(), 0, false));
+            allocationPrompt("Assign " + label + (source == null ? "" : " from " + allocationLabel(source)),
+                    new Allocation("generic", amount, label, List.copyOf(targets), false, false, false));
+        }
         void choicePrompt(String text, List<?> options, int min, int max) {
             newPrompt("choices", text); List<Object> list = new ArrayList<>();
             for (Object option : options) { String key = UUID.randomUUID().toString(); choices.put(key, option); String label = option instanceof CardView && !((CardView)option).canBeShownTo(human) ? "Face-down card" : String.valueOf(option); list.add(map("id", key, "label", label)); }

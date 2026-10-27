@@ -31,7 +31,8 @@ if not classpath:
     if not maven:
         sys.exit("Maven must be on PATH to resolve Forge dependencies.")
     cpfile = out / "classpath.txt"
-    subprocess.run([maven, "-q", "dependency:build-classpath", "-Dmdep.outputFile=" + str(cpfile)], cwd=desktop, check=True)
+    subprocess.run([maven, "-q", "-f", str(desktop / "pom.xml"), "dependency:build-classpath",
+                    "-Dmdep.outputFile=" + str(cpfile)], cwd=root, check=True)
     classpath = str(desktop / "target" / "classes") + os.pathsep + cpfile.read_text().strip()
 source = root / "tools" / "browser-bridge" / "src" / "forge" / "browser" / "Bridge.java"
 subprocess.run([javac, "-cp", classpath, "-d", str(out), str(source)], cwd=desktop, check=True)

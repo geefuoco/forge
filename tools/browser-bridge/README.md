@@ -18,4 +18,18 @@ The launcher resolves the desktop module's dependencies, compiles the bridge, an
 
 The Forge card database loads when the first match starts, which can take time. Decks are resolved and validated by the installed Forge database. The bridge reports unsupported decisions instead of making them automatically.
 
+Combat damage and generic amounts use an allocation editor in the browser. Assign each target's amount, then confirm. Combat checks include blocker order, lethal damage before trample, deathtouch, and free division when the ability allows it. Generic amounts respect per-target limits and minimums. When Forge permits deferring a combat assignment, **Assign another creature first** leaves that attacker for later.
+
+The companion validates the complete assignment before passing the original target objects back to Forge. Invalid or stale submissions leave the decision pending. Hidden cards remain labelled **Face-down card**. Other synchronous dialogs, including text input and card-list manipulation, remain unsupported. A complete browser-driven game is not verified.
+
 A secure browser may restrict requests from the hosted Site to a local HTTP service. The bridge responds to private-network preflights, but availability depends on the browser's local-network policy. Keep the token out of URLs and shared logs. This bridge is a work in progress; not every Forge decision type is supported yet.
+
+## Check prompt handling
+
+Set `FORGE_BRIDGE_CLASSPATH` to the built desktop module classes and its resolved dependency classpath. Use the matching JDK on `PATH`. Run the protocol checks from the checkout root.
+
+```sh
+python tools/browser-bridge/tests/run-prompts.py
+```
+
+The checks call `ProtocolGuiGame` with combat and generic allocation decisions. They verify the returned target maps and rejection of invalid assignments. They do not prove a complete match.

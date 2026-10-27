@@ -1,0 +1,3 @@
+__pycache__/
+dist/data/cards.json
+dist/downloads/*.zip

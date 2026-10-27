@@ -1,0 +1,26 @@
+# NeoForge browser test version
+
+The private Site project is `appgprj_6adfc16750848191bc9c8772a2008c1b`, slug `neoforge`. Reuse this identity. The Site source repository contains the deployable static application and its generated catalogue. The Java engine stays on the user's PC.
+
+## Working in this version
+
+- Browser-local deck library, draft editing, catalogue search and filters, mana curve, commander selection, import review, `.dck` export, and sample-hand draws.
+- 34,129 unique first-face card names from the pinned Forge scripts. Both World Shaper and Multiverse Reforged stock lists resolve to 100 cards.
+- Authenticated loopback companion, authoritative Forge Commander deck validation, real game setup, priority, card and player actions, confirmations, list choices, ordering, and concession.
+- Explicit viewer snapshots omit the CPU hand and library contents. The launcher uses a separate persistent profile and pairing tokens remain in page memory.
+- The Help dialog provides a companion source download and an origin-specific launch command. Extract it into a built Forge checkout.
+
+## Verified and limited
+
+Independent browser verification covered deck workflows, file and paste round trips, reload persistence, storage failures, keyboard dialogs, filters, desktop and narrow layouts, mock prompt controls, and stale-action recovery. Independent Java verification covered auth, origin, host, stale actions, typed choices, ordering, private zones, real Commander play, and concession. Review found and fixed commander copy loss, desktop preference overwrite, and concession without an active prompt.
+
+A separate browser-to-Java run paired through the actual website controls, started at 40 life, played a human land, answered a blocking choice, and conceded. This was a local HTTP preview with a real engine. The published private origin reaching the user's own PC remains a user-machine check and depends on browser local-network permission.
+
+## Remaining work
+
+1. Complete the unsupported synchronous GUI decisions, including combat damage allocation. The bridge reports these explicitly instead of choosing for the human. A complete natural browser-driven game is not verified.
+2. Verify the published Site on the user's PC, including browser local-network permission and reconnect after a closed browser tab.
+3. Continue the existing first-release milestones for remote invites, durable game save and restore, replay, stronger AI assessment, and measured rendering performance. No 60 FPS measurement is claimed for this version.
+4. Improve the game-board layout and richer card presentation after the remaining decisions work.
+
+GitHub Issues is disabled for this fork. This tracked list and the implementation PR preserve the outstanding work.

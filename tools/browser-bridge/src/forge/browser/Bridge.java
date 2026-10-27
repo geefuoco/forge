@@ -181,6 +181,63 @@ public final class Bridge {
             return result;
         }
     }
+    record InputOption(String id, String value) {
+        Map<String,Object> view() { return map("id", id, "label", value); }
+    }
+    record TextInput(String title, String initial, List<InputOption> options, boolean numeric) {
+        Map<String,Object> view() {
+            return map("title", title, "initial", initial, "numeric", numeric,
+                    "options", options == null ? null : options.stream().map(InputOption::view).toList());
+        }
+        String decode(JsonObject action) {
+            String kind = string(action, "kind");
+            if (kind.equals("cancel")) return null;
+            if (!kind.equals("input")) throw new IllegalArgumentException("Action does not match the input prompt");
+            if (options == null) return string(action, "value");
+            String id = string(action, "optionId");
+            return options.stream().filter(option -> option.id().equals(id)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown input option")).value();
+        }
+    }
+    record ManipulationCard(String id, CardView card, String label, boolean movable) {
+        Map<String,Object> view() { return map("id", id, "label", label, "movable", movable); }
+    }
+    record CardManipulation(List<ManipulationCard> cards, boolean toTop, boolean toBottom, boolean toAnywhere) {
+        Map<String,Object> view() {
+            return map("cards", cards.stream().map(ManipulationCard::view).toList(),
+                    "toTop", toTop, "toBottom", toBottom, "toAnywhere", toAnywhere);
+        }
+        List<CardView> decode(JsonObject action) {
+            if (!string(action, "kind").equals("manipulate"))
+                throw new IllegalArgumentException("Action does not match the card order prompt");
+            if (!action.has("cardIds") || !action.get("cardIds").isJsonArray()
+                    || action.getAsJsonArray("cardIds").size() != cards.size())
+                throw new IllegalArgumentException("Return every card exactly once");
+            Map<String,ManipulationCard> originals = new HashMap<>();
+            for (ManipulationCard card : cards) originals.put(card.id(), card);
+            List<ManipulationCard> ordered = new ArrayList<>();
+            for (JsonElement entry : action.getAsJsonArray("cardIds")) {
+                if (!entry.isJsonPrimitive() || !entry.getAsJsonPrimitive().isString())
+                    throw new IllegalArgumentException("Card IDs must be strings");
+                ManipulationCard card = originals.remove(entry.getAsString());
+                if (card == null) throw new IllegalArgumentException("Unknown or duplicate card");
+                ordered.add(card);
+            }
+            if (!permits(ordered)) throw new IllegalArgumentException("That card order is not allowed");
+            return ordered.stream().map(ManipulationCard::card).toList();
+        }
+        boolean permits(List<ManipulationCard> ordered) {
+            if (toAnywhere) return ordered.stream().filter(card -> !card.movable()).toList()
+                    .equals(cards.stream().filter(card -> !card.movable()).toList());
+            int start = 0, end = ordered.size();
+            if (toTop) while (start < end && ordered.get(start).movable()) start++;
+            if (toBottom) while (end > start && ordered.get(end - 1).movable()) end--;
+            Set<String> moved = new HashSet<>();
+            for (int i = 0; i < start; i++) moved.add(ordered.get(i).id());
+            for (int i = end; i < ordered.size(); i++) moved.add(ordered.get(i).id());
+            return ordered.subList(start, end).equals(cards.stream().filter(card -> !moved.contains(card.id())).toList());
+        }
+    }
     static final class MatchSession implements IRemote {
         final String id = UUID.randomUUID().toString();
         final JsonObject request;
@@ -194,6 +251,8 @@ public final class Bridge {
         String error, message = "", promptId, promptKind;
         Map<String,Object> prompt;
         Allocation allocation;
+        TextInput input;
+        CardManipulation manipulation;
         PlayerView human;
         PumpGui gui;
         long revision;
@@ -213,6 +272,13 @@ public final class Bridge {
             if (!action.has("revision") || action.get("revision").getAsLong() != revision) return "Stale revision";
             if (promptId == null || !promptId.equals(string(action, "promptId"))) return "Stale prompt";
             if (inFlight) return "An action is already in flight";
+            if (promptKind.equals("input") || promptKind.equals("manipulate")) {
+                try {
+                    if (promptKind.equals("input")) input.decode(action);
+                    else manipulation.decode(action);
+                } catch (IllegalArgumentException e) { return e.getMessage(); }
+                inFlight = true; commands.offer(action.deepCopy()); return null;
+            }
             if (promptKind.equals("allocation")) {
                 if (kind.equals("skip")) {
                     if (!allocation.maySkip()) return "This assignment cannot be skipped";
@@ -265,7 +331,7 @@ public final class Bridge {
         }
         synchronized void fail(Throwable t) {
             status = "error"; error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
-            prompt = null; promptId = null; inFlight = false; publish();
+            prompt = null; promptId = null; input = null; manipulation = null; inFlight = false; publish();
             t.printStackTrace();
         }
         synchronized void publish() {
@@ -311,7 +377,7 @@ public final class Bridge {
         }
         synchronized void newPrompt(String kind, String text) {
             promptId = UUID.randomUUID().toString(); promptKind = kind;
-            allocation = null;
+            allocation = null; input = null; manipulation = null;
             prompt = map("id", promptId, "kind", kind, "message", text); inFlight = false;
         }
         @Override public void send(NetEvent event) {
@@ -327,7 +393,7 @@ public final class Bridge {
                             prompt.put("buttons", List.of(map("id", "ok", "label", a[1], "enabled", a[3]), map("id", "cancel", "label", a[2], "enabled", a[4])));
                         }
                     }
-                    case afterGameEnd, finishGame -> { status = "finished"; prompt = null; promptId = null; }
+                    case afterGameEnd, finishGame -> { status = "finished"; prompt = null; promptId = null; input = null; manipulation = null; }
                     default -> { }
                 }
                 publish();
@@ -357,6 +423,10 @@ public final class Bridge {
                         case showOptionDialog -> choicePrompt(String.valueOf(a[0]), (List<?>)a[3], 1, 1);
                         case assignCombatDamage -> combatPrompt((CardView)a[0], (List<CardView>)a[1], (int)a[2], (GameEntityView)a[3], (boolean)a[4], (boolean)a[5]);
                         case assignGenericAmount -> genericPrompt((CardView)a[0], (Map<Object,Integer>)a[1], (int)a[2], (boolean)a[3], String.valueOf(a[4]));
+                        case showInputDialog -> inputPrompt(String.valueOf(a[0]), String.valueOf(a[1]),
+                                (String)a[3], (List<String>)a[4], (boolean)a[5]);
+                        case manipulateCardList -> manipulationPrompt(String.valueOf(a[0]), (Iterable<CardView>)a[1],
+                                (Iterable<CardView>)a[2], (boolean)a[3], (boolean)a[4], (boolean)a[5]);
                         default -> { newPrompt("unsupported", "This decision is not supported by the bridge: " + e.getMethod()); status = "error"; error = String.valueOf(prompt.get("message")); publish(); throw new IllegalStateException(error); }
                     }
                     publish();
@@ -365,7 +435,13 @@ public final class Bridge {
                     JsonObject action = commands.take();
                     synchronized (this) {
                         String kind = string(action, "kind");
-                        if (kind.equals("concede")) { gui.getGameController(human).concede(); status = "finished"; prompt = null; promptId = null; publish(); throw new CancellationException("Player conceded"); }
+                        if (kind.equals("concede")) { gui.getGameController(human).concede(); status = "finished"; prompt = null; promptId = null; input = null; manipulation = null; publish(); throw new CancellationException("Player conceded"); }
+                        if (!Objects.equals(promptId, string(action, "promptId"))) continue;
+                        if (promptKind.equals("input") || promptKind.equals("manipulate")) {
+                            Object result = promptKind.equals("input") ? input.decode(action) : manipulation.decode(action);
+                            prompt = null; promptId = null; input = null; manipulation = null; inFlight = false; publish();
+                            return result;
+                        }
                         if (promptKind.equals("allocation")) {
                             Map<Object,Integer> result = kind.equals("skip") ? null : allocation.decode(action);
                             prompt = null; promptId = null; allocation = null; inFlight = false; publish();
@@ -394,6 +470,23 @@ public final class Bridge {
             } catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw new IllegalStateException("Bridge interrupted", ex); }
         }
         List<Object> buttons() { return List.of(map("id", "ok", "label", "Yes", "enabled", true), map("id", "cancel", "label", "No", "enabled", true)); }
+        void inputPrompt(String message, String title, String initial, List<String> options, boolean numeric) {
+            newPrompt("input", message);
+            input = new TextInput(title, initial == null ? "" : initial, options == null ? null : options.stream()
+                    .map(value -> new InputOption(UUID.randomUUID().toString(), value)).toList(), numeric);
+            prompt.putAll(input.view());
+        }
+        void manipulationPrompt(String title, Iterable<CardView> originals, Iterable<CardView> movable,
+                                boolean top, boolean bottom, boolean anywhere) {
+            newPrompt("manipulate", title);
+            Set<CardView> movableCards = new HashSet<>();
+            for (CardView card : movable) movableCards.add(card);
+            List<ManipulationCard> entries = new ArrayList<>();
+            for (CardView card : originals) entries.add(new ManipulationCard(UUID.randomUUID().toString(), card,
+                    allocationLabel(card), movableCards.contains(card)));
+            manipulation = new CardManipulation(List.copyOf(entries), top, bottom, anywhere);
+            prompt.putAll(manipulation.view());
+        }
         String allocationLabel(Object entity) {
             if (entity instanceof CardView card) return card.canBeShownTo(human) ? card.getName() : "Face-down card";
             return String.valueOf(entity);

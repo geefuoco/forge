@@ -20,7 +20,11 @@ The Forge card database loads when the first match starts, which can take time. 
 
 Combat damage and generic amounts use an allocation editor in the browser. Assign each target's amount, then confirm. Combat checks include blocker order, lethal damage before trample, deathtouch, and free division when the ability allows it. Generic amounts respect per-target limits and minimums. When Forge permits deferring a combat assignment, **Assign another creature first** leaves that attacker for later.
 
-The companion validates the complete assignment before passing the original target objects back to Forge. Invalid or stale submissions leave the decision pending. Hidden cards remain labelled **Face-down card**. Other synchronous dialogs, including text input and card-list manipulation, remain unsupported. A complete browser-driven game is not verified.
+Text dialogs accept an exact response or a listed option. **Cancel** returns cancellation separately from an empty response. Numeric dialogs show a numeric keyboard hint and leave number validation to Forge.
+
+Card-list dialogs show the complete list and let you move the available cards to legal positions. Choose a card and its new position, then click **Move card**. **Reset order** restores the original list. **Confirm order** returns the whole list to Forge. Fixed cards retain their relative order, and top or bottom restrictions still apply. The controls work with the keyboard.
+
+The companion validates each answer before passing the original target objects back to Forge. Invalid or stale submissions leave the decision pending. Hidden cards remain labelled **Face-down card**. Text and card-order edits survive polling and stale-revision recovery. Restart the companion from the updated source before using these dialogs. Sideboarding and GUI-base dialogs remain outside this milestone. A complete browser-driven game is not verified.
 
 A secure browser may restrict requests from the hosted Site to a local HTTP service. The bridge responds to private-network preflights, but availability depends on the browser's local-network policy. Keep the token out of URLs and shared logs. This bridge is a work in progress; not every Forge decision type is supported yet.
 
@@ -32,4 +36,4 @@ Set `FORGE_BRIDGE_CLASSPATH` to the built desktop module classes and its resolve
 python tools/browser-bridge/tests/run-prompts.py
 ```
 
-The checks call `ProtocolGuiGame` with combat and generic allocation decisions. They verify the returned target maps and rejection of invalid assignments. They do not prove a complete match.
+The checks call `ProtocolGuiGame` with allocation, text, and card-list decisions. They verify exact text and cancellation, original target identities, hidden labels, and rejection of malformed or stale answers. Card-order checks compare the validator with exhaustive desktop legal-move exploration for lists of up to six entries. They do not prove a complete match.

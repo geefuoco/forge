@@ -60,7 +60,7 @@ const state = {
   url: "http://127.0.0.1:8787",
   token: "",
   snapshot: null,
-  selection: { promptId: null, ids: [], number: null },
+  selection: { promptId: null, ids: [], number: null, allocations: {} },
   importText: "",
   busy: false,
   polling: false,
@@ -260,14 +260,58 @@ function zone(name, list = []) {
   return `<div class="zone"><h3>${name} · ${list.length}</h3><div class="zone-cards">${list.map((c) => `<button class="game-card" data-card="${esc(c.id)}">${esc(c.name)}<span>${esc([c.mana, c.type, c.pt, c.tapped ? "Tapped" : "", c.counters].filter(Boolean).join(" · "))}</span></button>`).join("") || '<span class="subtle">Empty</span>'}</div></div>`;
 }
 function promptView(p) {
+  if (p.kind === "allocation") return allocationView(p);
   let choices = p.choices || [],
     buttons = p.buttons || [];
   return `<div class="prompt"><h3>${esc(p.message || "Your action")}</h3>${p.kind === "unsupported" ? "<p>Forge cannot present this choice in the browser yet.</p>" : ""}${["choices", "order"].includes(p.kind) ? `<p class="subtle">${p.kind === "order" ? "Select choices in the requested order." : "Choose " + (p.min ?? 0) + "–" + (p.max ?? choices.length) + "."}</p>${choices.map((c) => `<label class="choice"><input type="checkbox" name="choice" value="${esc(c.id)}" ${state.selection.ids.includes(String(c.id)) ? "checked" : ""}>${esc(c.label)}</label>`).join("")}<p id="choice-order" class="subtle" aria-live="polite">${p.kind === "order" ? "Order: " + state.selection.ids.map((id) => choices.find((c) => String(c.id) === id)?.label || id).join(" → ") : ""}</p><button class="button primary" data-action="submit-choice">Submit selection</button>` : ""}${p.kind === "number" ? `<div class="field"><label for="number-choice">NUMBER (${esc(p.min ?? 0)}–${esc(p.max ?? "")})</label><input id="number-choice" type="number" min="${esc(p.min ?? 0)}" max="${esc(p.max ?? "")}" value="${esc(state.selection.number ?? p.min ?? 0)}"></div><button class="button primary" data-action="submit-number">Submit</button>` : ""}<div class="toolbar">${buttons.map((b) => `<button class="button" data-prompt-button="${esc(b.id)}" ${b.enabled ? "" : "disabled"}>${esc(b.label)}</button>`).join("")}${!buttons.length && ["confirm", "message", "priority"].includes(p.kind) ? '<button class="button" data-prompt-button="ok">OK</button><button class="button" data-prompt-button="cancel">Cancel</button>' : ""}</div></div>`;
 }
+function allocationAmounts(p) {
+  return p.targets.map((target) => ({
+    id: target.id,
+    amount: state.selection.allocations[target.id] === ""
+      ? NaN
+      : Number(state.selection.allocations[target.id] ?? target.min),
+  }));
+}
+function allocationIssue(p, amounts) {
+  let assigned = 0, earlierBelowLethal = false;
+  for (let i = 0; i < p.targets.length; i++) {
+    const target = p.targets[i], amount = amounts[i].amount;
+    if (!Number.isSafeInteger(amount) || amount < target.min || amount > target.max)
+      return `Enter a whole number from ${target.min} to ${target.max} for ${target.label}.`;
+    if (p.allocationKind === "combat" && !p.divideFreely && earlierBelowLethal && amount > 0 && (p.ordered || target.defender))
+      return target.defender
+        ? "Assign lethal damage to every blocker before the defender."
+        : "Assign lethal damage to earlier blockers first.";
+    if (!target.defender) earlierBelowLethal ||= amount < target.lethal;
+    assigned += amount;
+  }
+  return assigned === p.total ? "" : `Assign exactly ${p.total} ${p.amountLabel}.`;
+}
+function allocationView(p) {
+  const amounts = allocationAmounts(p), issue = allocationIssue(p, amounts);
+  const assigned = amounts.reduce((sum, entry) => sum + entry.amount, 0);
+  const remaining = Number.isSafeInteger(assigned) ? p.total - assigned : "?";
+  return `<form class="prompt" id="allocation-form"><h3>${esc(p.message)}</h3><p>Allocate ${esc(p.total)} ${esc(p.amountLabel)} and confirm your assignment.</p>${p.allocationKind === "combat" && !p.divideFreely ? `<p class="subtle">${p.ordered ? "Earlier blockers need lethal damage before later targets." : "You may divide damage among blockers in any order."} Damage to the defender requires lethal damage on every blocker.</p>` : ""}<div class="allocation-targets">${p.targets.map((target, index) => `<div class="allocation-target"><label for="allocation-${index}">${esc(target.label)}${p.allocationKind === "combat" && !target.defender ? `<small>Lethal damage ${esc(target.lethal)}</small>` : ""}${target.defender ? "<small>Defender</small>" : ""}</label><input id="allocation-${index}" name="allocation" data-allocation="${esc(target.id)}" type="number" inputmode="numeric" step="1" min="${esc(target.min)}" max="${esc(target.max)}" value="${esc(state.selection.allocations[target.id] ?? target.min)}" required aria-describedby="allocation-error"></div>`).join("")}</div><p id="allocation-remaining" role="status">${esc(remaining)} remaining of ${esc(p.total)}</p><p id="allocation-error" class="subtle" aria-live="polite">${esc(issue)}</p><div class="toolbar"><button class="button primary" type="submit" ${issue ? "disabled" : ""}>Confirm assignment</button><button class="button" type="button" data-action="reset-allocation">Reset</button>${p.maySkip ? '<button class="button" type="button" data-action="skip-allocation">Assign another creature first</button>' : ""}</div></form>`;
+}
+function updateAllocationFeedback() {
+  const p = state.snapshot?.prompt;
+  if (p?.kind !== "allocation") return;
+  const amounts = allocationAmounts(p), issue = allocationIssue(p, amounts);
+  const assigned = amounts.reduce((sum, entry) => sum + entry.amount, 0);
+  document.querySelector("#allocation-remaining").textContent =
+    `${Number.isSafeInteger(assigned) ? p.total - assigned : "?"} remaining of ${p.total}`;
+  document.querySelector("#allocation-error").textContent = issue;
+  document.querySelector('#allocation-form button[type="submit"]').disabled = !!issue;
+}
 function render() {
+  const focusedAllocation = document.activeElement?.dataset.allocation;
   if (state.view === "library") library();
   else if (state.view === "editor") editor();
   else play();
+  if (focusedAllocation)
+    [...app.querySelectorAll("[data-allocation]")]
+      .find((input) => input.dataset.allocation === focusedAllocation)?.focus();
 }
 async function api(path, options = {}) {
   const r = await fetch(state.url.replace(/\/$/, "") + "/api/v1/" + path, {
@@ -310,6 +354,7 @@ function acceptSnapshot(snapshot) {
       promptId: snapshot.prompt?.id ?? null,
       ids: [],
       number: null,
+      allocations: {},
     };
   }
   state.snapshot = snapshot;
@@ -572,7 +617,7 @@ app.addEventListener("click", async (e) => {
   }
   if (a === "help") {
     openModal(
-      `<h2>Welcome to NeoForge</h2><p>Build Commander decks from the full local catalogue. Your library is saved in this browser, so export decks to keep a portable copy. The draft checks are a guide; Forge has the final say on legality.</p><p>To play, run the NeoForge companion on your PC and connect using its address and pairing token. Select both decks and start a game against Forge's CPU. This is an early browser test version. Complex decisions such as assigning combat damage are still being implemented. The token stays in memory and is cleared when you reload.</p><p><a class="button" href="downloads/neoforge-companion-source.zip" download>Download companion source</a></p><p>Extract the source into your Forge checkout and follow its README. To allow this Site, launch it with <code>python tools/browser-bridge/launch.py --origin ${esc(location.origin)}</code>. Your browser may ask for local-network access when connecting.</p><p>Test draw is a quick sample hand, separate from real play.</p><div class="modal-actions"><button class="button primary" data-action="close">Got it</button></div>`,
+      `<h2>Welcome to NeoForge</h2><p>Build Commander decks from the full local catalogue. Your library is saved in this browser, so export decks to keep a portable copy. The draft checks are a guide; Forge has the final say on legality.</p><p>To play, run the NeoForge companion on your PC and connect using its address and pairing token. Select both decks and start a game against Forge's CPU. This is an early browser test version. Combat damage and divided amounts use an assignment editor. Some other game decisions are still being implemented. The token stays in memory and is cleared when you reload.</p><p><a class="button" href="downloads/neoforge-companion-source.zip" download>Download companion source</a></p><p>Extract the source into your Forge checkout and follow its README. To allow this Site, launch it with <code>python tools/browser-bridge/launch.py --origin ${esc(location.origin)}</code>. Your browser may ask for local-network access when connecting.</p><p>Test draw is a quick sample hand, separate from real play.</p><div class="modal-actions"><button class="button primary" data-action="close">Got it</button></div>`,
     );
   }
   if (a === "connect") {
@@ -630,6 +675,21 @@ app.addEventListener("click", async (e) => {
       return;
     action("number", { value: Number(input.value) });
   }
+  if (a === "reset-allocation") {
+    state.selection.allocations = {};
+    render();
+  }
+  if (a === "skip-allocation") action("skip");
+});
+
+app.addEventListener("submit", (e) => {
+  if (e.target.id !== "allocation-form") return;
+  e.preventDefault();
+  const prompt = state.snapshot?.prompt;
+  if (prompt?.kind !== "allocation") return;
+  const amounts = allocationAmounts(prompt);
+  if (!e.target.reportValidity() || allocationIssue(prompt, amounts)) return;
+  action("allocation", { allocations: amounts });
 });
 
 modal.addEventListener("click", async (e) => {
@@ -767,6 +827,10 @@ modal.addEventListener("change", async (e) => {
 });
 
 app.addEventListener("input", (e) => {
+  if (e.target.name === "allocation") {
+    state.selection.allocations[e.target.dataset.allocation] = e.target.value;
+    updateAllocationFeedback();
+  }
   if (e.target.id === "search") {
     let pos = e.target.selectionStart;
     state.query = e.target.value;

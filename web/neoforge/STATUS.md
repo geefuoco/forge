@@ -19,6 +19,10 @@ A separate browser-to-Java run paired through the actual website controls, start
 
 Allocation checks call the real `ProtocolGuiGame` combat and generic methods and verify the maps returned by the companion. They cover illegal payloads, combat rules, hidden labels, target identity, zero entries, stale actions, and allowed deferral. The Chromium allocation checks use mock companion responses and cover editing, polling retention, reset, stale recovery, keyboard submission, and a narrow layout. These checks do not establish that a complete game finishes.
 
+Independent verification on 2026-10-27 also exercised actual Chromium against the companion over HTTP, then checked damage assignment and application through Forge's human controller and combat engine. Legacy trample, modern blocker splitting, and deathtouch produced the expected blocker damage and defender life. Generic shield allocation preserved the original engine targets, and concession cancelled a pending allocation. The normal match smoke check passed with both requested stock precons. Desktop and narrow browser checks also covered starter imports, deck edits, and reload persistence.
+
+The interrupted launcher fix is complete. Maven now runs from the checkout root with the desktop POM selected explicitly, which resolves the reported relative settings-file error. Three launcher regression tests and real Maven module validation passed. Fresh-cache dependency resolution and native Windows startup remain unverified. Restart the companion from the updated checkout or extract the updated companion source download before using allocation prompts.
+
 ## Remaining work
 
 1. Complete the remaining synchronous GUI decisions, including text input and card-list manipulation. Combat damage and generic amounts now have allocation prompts. The bridge reports unsupported decisions explicitly instead of choosing for the human. A complete natural browser-driven game is not verified.

@@ -17,6 +17,8 @@ on:
       - 'forge-gui/**'
       - 'forge-gui-desktop/**'
       - 'pom.xml'
+      - '.mvn/**'
+      - 'LICENSE'
       - 'tools/browser-bridge/**'
       - 'web/neoforge/**'
       - '.github/workflows/player-client.yml'
@@ -34,6 +36,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-java@7a445ee88d4e23b52c33a994e0b8b2e33a216d03
         with:
           distribution: temurin

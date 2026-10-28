@@ -1,0 +1,16 @@
+{
+  "scope": "local packaged Linux clients and real relay, not public deployment",
+  "checks": [
+    "both native executables started without external runtime tools",
+    "mismatched build cannot consume invitation",
+    "friend joins through installed interface",
+    "real Forge game advances through both private seat views",
+    "browser reload reconnects to same host match",
+    "stale action rejected through relay",
+    "guest concession yields authoritative result in both clients"
+  ],
+  "browserActions": 35,
+  "errors": [],
+  "buildId": "f36843920bfcf35411e3fa72e4daef11d008d25d",
+  "sourceRevision": "f36843920bfcf35411e3fa72e4daef11d008d25d"
+}

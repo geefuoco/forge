@@ -1,5 +1,7 @@
 # Hosting feasibility
 
+Historical cloud-engine prototype. The accepted target is now [installed clients with a player-hosted relay](player-hosted-plan.md). This document does not describe the active release architecture.
+
 Checked 2026-10-28. No hosting account is provisioned and no paid service has been selected or purchased.
 
 ## GPT Sites and the Java engine

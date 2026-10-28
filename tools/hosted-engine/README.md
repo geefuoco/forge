@@ -1,5 +1,7 @@
 # Run the hosted engine service
 
+This directory is an earlier cloud-engine prototype. The active product uses [installed clients](../player-client/README.md) and a [lightweight relay](../player-relay/README.md). This gateway is not a dependency of those clients.
+
 These commands are for the server operator. Players need only the hosted website.
 
 ## Build the container

@@ -97,6 +97,7 @@ def main(image, work):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     running = []
     checks, errors, snapshots = [], [], {}
+    observing = {"enabled": True}
     try:
         clients = []
         for role in ('host', 'guest'):
@@ -109,7 +110,7 @@ def main(image, work):
             contexts = [browser.new_context(viewport={'width': 1440, 'height': 1000}) for _ in clients]
             pages = [context.new_page() for context in contexts]
             def receive(role, response):
-                if '/api/v1/' not in response.url:
+                if not observing['enabled'] or '/api/v1/' not in response.url:
                     return
                 try:
                     data = response.json()
@@ -117,7 +118,8 @@ def main(image, work):
                         privacy(data)
                         snapshots[role] = data
                 except Exception as error:
-                    errors.append(str(error))
+                    if observing["enabled"]:
+                        errors.append(str(error))
             for role, page, local in zip(('host', 'guest'), pages, clients):
                 page.on('pageerror', lambda error: errors.append(str(error)))
                 page.on('response', lambda response, role=role: receive(role, response))
@@ -195,9 +197,11 @@ def main(image, work):
             assert any(p.get('lossReason') == 'Conceded' for p in snapshots['guest']['result']['participants'])
             checks.append('guest concession yields authoritative result in both clients')
             assert not errors, errors
+            observing["enabled"] = False
             browser.close()
         result = {'scope': 'local packaged Linux clients and real relay, not public deployment', 'checks': checks,
                   'browserActions': actions, 'errors': errors,
+                  'buildId': json.loads((image / ('app/client-config.json' if os.name == 'nt' else 'lib/app/client-config.json')).read_text())['buildId'],
                   'sourceRevision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()}
         (work / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result), flush=True)

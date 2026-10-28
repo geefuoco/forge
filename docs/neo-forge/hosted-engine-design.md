@@ -1,5 +1,7 @@
 # Hosted engine design
 
+Historical cloud-engine prototype. The accepted target is now [installed clients with a player-hosted relay](player-hosted-plan.md). This document does not describe the active release architecture.
+
 The hosted service runs Forge on a server. Players use the website without Java, Forge, or a companion on their computers. This implementation has local verification. Public deployment and the milestone 2 acceptance checks remain open.
 
 ## Match and seat ownership

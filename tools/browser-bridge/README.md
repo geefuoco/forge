@@ -20,7 +20,15 @@ The Forge card database loads when the first match starts, which can take time. 
 
 Combat damage and generic amounts use an allocation editor in the browser. Assign each target's amount, then confirm. Combat checks include blocker order, lethal damage before trample, deathtouch, and free division when the ability allows it. Generic amounts respect per-target limits and minimums. When Forge permits deferring a combat assignment, **Assign another creature first** leaves that attacker for later.
 
-The companion validates the complete assignment before passing the original target objects back to Forge. Invalid or stale submissions leave the decision pending. Hidden cards remain labelled **Face-down card**. Other synchronous dialogs, including text input and card-list manipulation, remain unsupported. A complete browser-driven game is not verified.
+Text dialogs accept an exact response or a listed option. **Cancel** returns cancellation separately from an empty response. Numeric dialogs show a numeric keyboard hint and leave number validation to Forge.
+
+Card-list dialogs show the complete list and let you move the available cards to legal positions. Choose a card and its new position, then click **Move card**. **Reset order** restores the original list. **Confirm order** returns the whole list to Forge. Fixed cards retain their relative order, and top or bottom restrictions still apply. The controls work with the keyboard.
+
+Informational card reveals show a list and a **Continue** button. Acknowledge the list to resume play; the companion does not choose a card for you.
+
+When Forge finishes a game, the browser shows its authoritative win, loss, draw, or concession result. Completed boards remain visible without action controls. If an outcome is unavailable, the browser says so instead of guessing a draw.
+
+The companion validates each answer before passing the original target objects back to Forge. Invalid or stale submissions leave the decision pending. Hidden cards remain labelled **Face-down card**. Text and card-order edits survive polling and stale-revision recovery. Restart the companion from the updated source before using these dialogs. Sideboarding and GUI-base dialogs remain outside this milestone. A passive browser-driven game using the two stock decks completed naturally on turn 29. Other deck interactions, native Windows startup, and the hosted Site reaching your PC remain separate checks.
 
 A secure browser may restrict requests from the hosted Site to a local HTTP service. The bridge responds to private-network preflights, but availability depends on the browser's local-network policy. Keep the token out of URLs and shared logs. This bridge is a work in progress; not every Forge decision type is supported yet.
 
@@ -32,4 +40,16 @@ Set `FORGE_BRIDGE_CLASSPATH` to the built desktop module classes and its resolve
 python tools/browser-bridge/tests/run-prompts.py
 ```
 
-The checks call `ProtocolGuiGame` with combat and generic allocation decisions. They verify the returned target maps and rejection of invalid assignments. They do not prove a complete match.
+The checks call `ProtocolGuiGame` with allocation, text, card-list, and informational reveal decisions. They verify exact text and cancellation, original target identities, hidden labels, and rejection of malformed or stale answers. Card-order checks compare the validator with exhaustive desktop legal-move exploration for lists of up to six entries. Completion fixtures also cover real `GameOutcome` projections and terminal cleanup, including eliminated participants and concession reasons. These protocol fixtures do not prove a complete natural match.
+
+## Check natural completion
+
+With the same classpath and JDK, run the bounded Chromium game probe from the checkout root. Set `CHROMIUM_PATH` if Chromium is not on `PATH`. Install the Python Playwright package before running the probe.
+
+```sh
+python tools/browser-bridge/tests/natural-game.py --work /tmp/neoforge-natural-game
+```
+
+The probe imports the two stock decks through the website, pairs with the real companion, and uses browser controls throughout. Its passive human policy keeps the opening hand, plays one land per turn, accepts required decisions, and attacks when the available Alpha Strike control permits it. It does not attempt competitive play. It rejects concession, requires Forge's authoritative result, and checks the completed board for inactive controls and false action-failure messages. `--reverse-decks` swaps the stock decks between seats. The output directory contains the tested revision, browser actions, engine snapshots, terminal screenshot, and result. The default limit is eight minutes.
+
+A final click can arrive after Forge has finished. The browser refreshes that match after a terminal refusal and shows the authoritative state without asking you to retry a completed action. If the refresh fails, the browser reports that failure.

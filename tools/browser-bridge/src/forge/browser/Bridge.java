@@ -181,6 +181,83 @@ public final class Bridge {
             return result;
         }
     }
+    record InputOption(String id, String value) {
+        Map<String,Object> view() { return map("id", id, "label", value); }
+    }
+    record TextInput(String title, String initial, List<InputOption> options, boolean numeric) {
+        Map<String,Object> view() {
+            return map("title", title, "initial", initial, "numeric", numeric,
+                    "options", options == null ? null : options.stream().map(InputOption::view).toList());
+        }
+        String decode(JsonObject action) {
+            String kind = string(action, "kind");
+            if (kind.equals("cancel")) return null;
+            if (!kind.equals("input")) throw new IllegalArgumentException("Action does not match the input prompt");
+            if (options == null) return string(action, "value");
+            String id = string(action, "optionId");
+            return options.stream().filter(option -> option.id().equals(id)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown input option")).value();
+        }
+    }
+    record ManipulationCard(String id, CardView card, String label, boolean movable) {
+        Map<String,Object> view() { return map("id", id, "label", label, "movable", movable); }
+    }
+    record CardManipulation(List<ManipulationCard> cards, boolean toTop, boolean toBottom, boolean toAnywhere) {
+        Map<String,Object> view() {
+            return map("cards", cards.stream().map(ManipulationCard::view).toList(),
+                    "toTop", toTop, "toBottom", toBottom, "toAnywhere", toAnywhere);
+        }
+        List<CardView> decode(JsonObject action) {
+            if (!string(action, "kind").equals("manipulate"))
+                throw new IllegalArgumentException("Action does not match the card order prompt");
+            if (!action.has("cardIds") || !action.get("cardIds").isJsonArray()
+                    || action.getAsJsonArray("cardIds").size() != cards.size())
+                throw new IllegalArgumentException("Return every card exactly once");
+            Map<String,ManipulationCard> originals = new HashMap<>();
+            for (ManipulationCard card : cards) originals.put(card.id(), card);
+            List<ManipulationCard> ordered = new ArrayList<>();
+            for (JsonElement entry : action.getAsJsonArray("cardIds")) {
+                if (!entry.isJsonPrimitive() || !entry.getAsJsonPrimitive().isString())
+                    throw new IllegalArgumentException("Card IDs must be strings");
+                ManipulationCard card = originals.remove(entry.getAsString());
+                if (card == null) throw new IllegalArgumentException("Unknown or duplicate card");
+                ordered.add(card);
+            }
+            if (!permits(ordered)) throw new IllegalArgumentException("That card order is not allowed");
+            return ordered.stream().map(ManipulationCard::card).toList();
+        }
+        boolean permits(List<ManipulationCard> ordered) {
+            if (toAnywhere) return ordered.stream().filter(card -> !card.movable()).toList()
+                    .equals(cards.stream().filter(card -> !card.movable()).toList());
+            int start = 0, end = ordered.size();
+            if (toTop) while (start < end && ordered.get(start).movable()) start++;
+            if (toBottom) while (end > start && ordered.get(end - 1).movable()) end--;
+            Set<String> moved = new HashSet<>();
+            for (int i = 0; i < start; i++) moved.add(ordered.get(i).id());
+            for (int i = end; i < ordered.size(); i++) moved.add(ordered.get(i).id());
+            return ordered.subList(start, end).equals(cards.stream().filter(card -> !moved.contains(card.id())).toList());
+        }
+    }
+    record ParticipantResult(String name, String outcome, String lossReason) { }
+    record CompletionResult(String kind, String endReason, int turns, List<ParticipantResult> participants) {
+        static CompletionResult from(GameOutcome outcome) {
+            if (outcome == null || outcome.getWinCondition() == null || outcome.getPlayerNames().isEmpty()) return null;
+            List<ParticipantResult> participants = new ArrayList<>();
+            for (var entry : outcome) {
+                String name = outcome.getPlayerNames().get(entry.getKey());
+                var stats = entry.getValue();
+                if (name == null || stats == null || stats.getOutcome() == null) return null;
+                var player = stats.getOutcome();
+                String state = player.hasWon() ? "won" : player.lossState == GameLossReason.IntentionalDraw ? "draw" : "lost";
+                participants.add(new ParticipantResult(name, state, player.lossState == null ? null : player.lossState.name()));
+            }
+            if (participants.size() != outcome.getPlayerNames().size()) return null;
+            participants.sort(Comparator.comparing((ParticipantResult participant) -> !participant.name().equals("You"))
+                    .thenComparing(ParticipantResult::name));
+            return new CompletionResult(outcome.isDraw() ? "draw" : "decided", outcome.getWinCondition().name(),
+                    outcome.getLastTurnNumber(), List.copyOf(participants));
+        }
+    }
     static final class MatchSession implements IRemote {
         final String id = UUID.randomUUID().toString();
         final JsonObject request;
@@ -194,6 +271,9 @@ public final class Bridge {
         String error, message = "", promptId, promptKind;
         Map<String,Object> prompt;
         Allocation allocation;
+        TextInput input;
+        CardManipulation manipulation;
+        CompletionResult result;
         PlayerView human;
         PumpGui gui;
         long revision;
@@ -203,16 +283,31 @@ public final class Bridge {
         synchronized String submit(JsonObject action) {
             if (terminal()) return "Match is over";
             if (!id.equals(string(action, "matchId"))) return "Stale match";
+            Long actionRevision = null;
+            if (action.has("revision")) {
+                JsonElement value = action.get("revision");
+                if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber())
+                    return "Revision must be a whole number within range";
+                try { actionRevision = value.getAsBigDecimal().longValueExact(); }
+                catch (ArithmeticException | NumberFormatException e) { return "Revision must be a whole number within range"; }
+            }
             String kind = string(action, "kind");
             if (kind.equals("concede")) {
-                if (action.has("revision") && action.get("revision").getAsLong() != revision) return "Stale revision";
+                if (actionRevision != null && actionRevision != revision) return "Stale revision";
                 if (action.has("promptId") && !Objects.equals(promptId, string(action, "promptId"))) return "Stale prompt";
                 commands.offer(action.deepCopy());
                 return null;
             }
-            if (!action.has("revision") || action.get("revision").getAsLong() != revision) return "Stale revision";
+            if (actionRevision == null || actionRevision != revision) return "Stale revision";
             if (promptId == null || !promptId.equals(string(action, "promptId"))) return "Stale prompt";
             if (inFlight) return "An action is already in flight";
+            if (promptKind.equals("input") || promptKind.equals("manipulate")) {
+                try {
+                    if (promptKind.equals("input")) input.decode(action);
+                    else manipulation.decode(action);
+                } catch (IllegalArgumentException e) { return e.getMessage(); }
+                inFlight = true; commands.offer(action.deepCopy()); return null;
+            }
             if (promptKind.equals("allocation")) {
                 if (kind.equals("skip")) {
                     if (!allocation.maySkip()) return "This assignment cannot be skipped";
@@ -226,6 +321,7 @@ public final class Bridge {
             if (!kind.equals("concede")) {
                 if (promptKind.equals("priority") && !Set.of("ok", "cancel", "card", "player").contains(kind)) return "Action does not match the prompt";
                 if (promptKind.equals("confirm") && !Set.of("ok", "cancel").contains(kind)) return "Action does not match the prompt";
+                if (promptKind.equals("reveal") && !kind.equals("ok")) return "Action does not match the prompt";
                 if ((promptKind.equals("choices") || promptKind.equals("order")) && !kind.equals("choice")) return "Action does not match the prompt";
                 if (kind.equals("choice")) {
                     if (!action.has("choiceIds") || !action.get("choiceIds").isJsonArray()) return "Choices are required";
@@ -265,7 +361,7 @@ public final class Bridge {
         }
         synchronized void fail(Throwable t) {
             status = "error"; error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
-            prompt = null; promptId = null; inFlight = false; publish();
+            prompt = null; promptId = null; input = null; manipulation = null; inFlight = false; publish();
             t.printStackTrace();
         }
         synchronized void publish() {
@@ -292,8 +388,17 @@ public final class Bridge {
                 List<Object> stack = new ArrayList<>();
                 if (view.getStack() != null) for (StackItemView item : view.getStack()) stack.add(map("id", String.valueOf(item.getId()), "label", item.toString()));
                 out.put("stack", stack);
-                if (view.isGameOver()) { status = "finished"; out.put("status", status); }
+                if (view.isGameOver()) {
+                    if (!status.equals("error")) status = "finished";
+                    if (result == null) result = CompletionResult.from(view.getOutcome());
+                }
             }
+            if (terminal()) {
+                prompt = null; promptId = null; promptKind = null; choices.clear();
+                allocation = null; input = null; manipulation = null; inFlight = false;
+            }
+            out.put("status", status);
+            if (result != null) out.put("result", result);
             if (prompt != null) out.put("prompt", prompt);
             snapshot = JSON.toJson(out);
         }
@@ -311,7 +416,7 @@ public final class Bridge {
         }
         synchronized void newPrompt(String kind, String text) {
             promptId = UUID.randomUUID().toString(); promptKind = kind;
-            allocation = null;
+            allocation = null; input = null; manipulation = null;
             prompt = map("id", promptId, "kind", kind, "message", text); inFlight = false;
         }
         @Override public void send(NetEvent event) {
@@ -327,7 +432,7 @@ public final class Bridge {
                             prompt.put("buttons", List.of(map("id", "ok", "label", a[1], "enabled", a[3]), map("id", "cancel", "label", a[2], "enabled", a[4])));
                         }
                     }
-                    case afterGameEnd, finishGame -> { status = "finished"; prompt = null; promptId = null; }
+                    case afterGameEnd, finishGame -> { if (!status.equals("error")) status = "finished"; }
                     default -> { }
                 }
                 publish();
@@ -340,7 +445,10 @@ public final class Bridge {
                     choices.clear();
                     switch (e.getMethod()) {
                         case getAbilityToPlay -> choicePrompt("Choose an ability", (List<?>)a[1], 1, 1);
-                        case getChoices -> choicePrompt(String.valueOf(a[0]), (List<?>)a[3], (int)a[1], (int)a[2]);
+                        case getChoices -> {
+                            if ((int)a[1] == -1 && (int)a[2] == -1) revealPrompt(String.valueOf(a[0]), (List<?>)a[3]);
+                            else choicePrompt(String.valueOf(a[0]), (List<?>)a[3], (int)a[1], (int)a[2]);
+                        }
                         case order -> {
                             List<Object> all = new ArrayList<>((List<?>)a[4]);
                             if (a[5] != null) all.addAll((List<?>)a[5]);
@@ -357,6 +465,10 @@ public final class Bridge {
                         case showOptionDialog -> choicePrompt(String.valueOf(a[0]), (List<?>)a[3], 1, 1);
                         case assignCombatDamage -> combatPrompt((CardView)a[0], (List<CardView>)a[1], (int)a[2], (GameEntityView)a[3], (boolean)a[4], (boolean)a[5]);
                         case assignGenericAmount -> genericPrompt((CardView)a[0], (Map<Object,Integer>)a[1], (int)a[2], (boolean)a[3], String.valueOf(a[4]));
+                        case showInputDialog -> inputPrompt(String.valueOf(a[0]), String.valueOf(a[1]),
+                                (String)a[3], (List<String>)a[4], (boolean)a[5]);
+                        case manipulateCardList -> manipulationPrompt(String.valueOf(a[0]), (Iterable<CardView>)a[1],
+                                (Iterable<CardView>)a[2], (boolean)a[3], (boolean)a[4], (boolean)a[5]);
                         default -> { newPrompt("unsupported", "This decision is not supported by the bridge: " + e.getMethod()); status = "error"; error = String.valueOf(prompt.get("message")); publish(); throw new IllegalStateException(error); }
                     }
                     publish();
@@ -365,11 +477,21 @@ public final class Bridge {
                     JsonObject action = commands.take();
                     synchronized (this) {
                         String kind = string(action, "kind");
-                        if (kind.equals("concede")) { gui.getGameController(human).concede(); status = "finished"; prompt = null; promptId = null; publish(); throw new CancellationException("Player conceded"); }
+                        if (kind.equals("concede")) { gui.getGameController(human).concede(); status = "finished"; prompt = null; promptId = null; input = null; manipulation = null; publish(); throw new CancellationException("Player conceded"); }
+                        if (!Objects.equals(promptId, string(action, "promptId"))) continue;
+                        if (promptKind.equals("input") || promptKind.equals("manipulate")) {
+                            Object result = promptKind.equals("input") ? input.decode(action) : manipulation.decode(action);
+                            prompt = null; promptId = null; input = null; manipulation = null; inFlight = false; publish();
+                            return result;
+                        }
                         if (promptKind.equals("allocation")) {
                             Map<Object,Integer> result = kind.equals("skip") ? null : allocation.decode(action);
                             prompt = null; promptId = null; allocation = null; inFlight = false; publish();
                             return result;
+                        }
+                        if (promptKind.equals("reveal") && kind.equals("ok")) {
+                            prompt = null; promptId = null; inFlight = false; publish();
+                            return List.of();
                         }
                         if (promptKind.equals("confirm") && (kind.equals("ok") || kind.equals("cancel"))) { prompt = null; promptId = null; inFlight = false; publish(); return kind.equals("ok"); }
                         if ((promptKind.equals("choices") || promptKind.equals("order")) && kind.equals("choice")) {
@@ -394,6 +516,23 @@ public final class Bridge {
             } catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw new IllegalStateException("Bridge interrupted", ex); }
         }
         List<Object> buttons() { return List.of(map("id", "ok", "label", "Yes", "enabled", true), map("id", "cancel", "label", "No", "enabled", true)); }
+        void inputPrompt(String message, String title, String initial, List<String> options, boolean numeric) {
+            newPrompt("input", message);
+            input = new TextInput(title, initial == null ? "" : initial, options == null ? null : options.stream()
+                    .map(value -> new InputOption(UUID.randomUUID().toString(), value)).toList(), numeric);
+            prompt.putAll(input.view());
+        }
+        void manipulationPrompt(String title, Iterable<CardView> originals, Iterable<CardView> movable,
+                                boolean top, boolean bottom, boolean anywhere) {
+            newPrompt("manipulate", title);
+            Set<CardView> movableCards = new HashSet<>();
+            for (CardView card : movable) movableCards.add(card);
+            List<ManipulationCard> entries = new ArrayList<>();
+            for (CardView card : originals) entries.add(new ManipulationCard(UUID.randomUUID().toString(), card,
+                    allocationLabel(card), movableCards.contains(card)));
+            manipulation = new CardManipulation(List.copyOf(entries), top, bottom, anywhere);
+            prompt.putAll(manipulation.view());
+        }
         String allocationLabel(Object entity) {
             if (entity instanceof CardView card) return card.canBeShownTo(human) ? card.getName() : "Face-down card";
             return String.valueOf(entity);
@@ -425,6 +564,11 @@ public final class Bridge {
                     atLeastOne ? 1 : 0, target.getValue() == null ? amount : target.getValue(), 0, false));
             allocationPrompt("Assign " + label + (source == null ? "" : " from " + allocationLabel(source)),
                     new Allocation("generic", amount, label, List.copyOf(targets), false, false, false));
+        }
+        void revealPrompt(String text, List<?> options) {
+            newPrompt("reveal", text);
+            prompt.put("items", options.stream().map(this::allocationLabel).toList());
+            prompt.put("buttons", List.of(map("id", "ok", "label", "Continue", "enabled", true)));
         }
         void choicePrompt(String text, List<?> options, int min, int max) {
             newPrompt("choices", text); List<Object> list = new ArrayList<>();

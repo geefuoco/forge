@@ -60,7 +60,9 @@ const state = {
   url: "http://127.0.0.1:8787",
   token: "",
   snapshot: null,
-  selection: { promptId: null, ids: [], number: null, allocations: {} },
+  selection: { matchId: null, promptId: null, ids: [], number: null, allocations: {} },
+  composing: false,
+  deferredRender: false,
   importText: "",
   busy: false,
   polling: false,
@@ -239,7 +241,7 @@ function entryRows(entries) {
 function play() {
   let s = state.snapshot;
   shell(
-    `<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>A real game powered by Forge running on your PC.</p></div>${state.connected && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${!state.connected ? `<div class="hero"><div><div class="eyebrow">Your engine, your machine</div><h2>Connect to take a seat.</h2><p>Start the NeoForge companion on your PC, then pair this browser to play against Forge's CPU.</p></div><button class="button primary" data-action="connect">Connect PC</button></div>` : ["playing", "starting"].includes(s?.status) ? "" : `<div class="panel"><div class="panel-head"><h2>Start a match</h2><span class="subtle">Connected to Forge</span></div><div class="panel-body"><div class="split"><div class="field"><label for="human-deck">YOUR DECK</label><select id="human-deck">${deckOptions()}</select></div><div class="field"><label for="ai-deck">CPU DECK</label><select id="ai-deck">${deckOptions()}</select></div></div><button class="button primary" data-action="start" ${state.decks.length && !["playing", "starting"].includes(s?.status) ? "" : "disabled"}>Start real game</button> <span class="subtle">Forge validates both decks before play.</span></div></div>`}${s ? matchView(s) : ""}`,
+    `<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>A real game powered by Forge running on your PC.</p></div>${state.connected && !s?.result && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${!state.connected ? `<div class="hero"><div><div class="eyebrow">Your engine, your machine</div><h2>Connect to take a seat.</h2><p>Start the NeoForge companion on your PC, then pair this browser to play against Forge's CPU.</p></div><button class="button primary" data-action="connect">Connect PC</button></div>` : ["playing", "starting"].includes(s?.status) ? "" : `<div class="panel"><div class="panel-head"><h2>Start a match</h2><span class="subtle">Connected to Forge</span></div><div class="panel-body"><div class="split"><div class="field"><label for="human-deck">YOUR DECK</label><select id="human-deck">${deckOptions()}</select></div><div class="field"><label for="ai-deck">CPU DECK</label><select id="ai-deck">${deckOptions()}</select></div></div><button class="button primary" data-action="start" ${state.decks.length && !["playing", "starting"].includes(s?.status) ? "" : "disabled"}>Start real game</button> <span class="subtle">Forge validates both decks before play.</span></div></div>`}${s ? matchView(s) : ""}`,
   );
 }
 function deckOptions() {
@@ -250,20 +252,62 @@ function deckOptions() {
     )
     .join("");
 }
+function resultView(s) {
+  if (s.status !== "finished") return "";
+  const result = s.result;
+  if (!result) return '<section class="game-result" role="status"><h2>Game finished</h2><p>Result unavailable.</p></section>';
+  const local = result.participants.find((participant) => participant.name === "You");
+  const heading = result.kind === "draw" ? "Draw" : local?.outcome === "won" ? "You won"
+    : local?.lossReason === "Conceded" ? "You conceded" : local?.outcome === "lost" ? "You lost" : "Game finished";
+  const reasons = {
+    Conceded: "Conceded", LifeReachedZero: "Life reached zero", Milled: "Drew from an empty library",
+    Poisoned: "Poison counters", CommanderDamage: "Commander damage", SpellEffect: "Card effect",
+    OpponentWon: "Opponent won", IntentionalDraw: "Agreed draw",
+  };
+  const outcomes = { won: "Won", lost: "Lost", draw: "Draw" };
+  return `<section class="game-result" role="status"><div class="eyebrow">Game complete · ${esc(result.turns)} turns</div><h2>${heading}</h2><ul>${result.participants.map((participant) => `<li><strong>${esc(participant.name)}</strong><span>${outcomes[participant.outcome] || "Game ended"}${participant.lossReason ? " · " + (reasons[participant.lossReason] || "Game ended") : ""}</span></li>`).join("")}</ul></section>`;
+}
 function matchView(s) {
-  return `<div class="panel" style="margin-top:22px"><div class="panel-head"><div><div class="eyebrow">${esc(s.status)} · Turn ${esc(s.turn ?? "—")}</div><h2>${esc(s.phase || "Waiting for game")}</h2></div><span class="subtle">${esc(s.error || "")}</span></div><div class="panel-body">${s.prompt ? promptView(s.prompt) : ""}<div class="split">${(s.players || []).map((p, i) => `<section><div class="game-header"><h2 class="section-title"><button class="card-name" data-player="${esc(p.id)}">${esc(p.name)}</button> ${i === 0 ? "" : '<span class="subtle">CPU</span>'}</h2><div class="life">${esc(p.life)} <small>life</small></div></div><p class="subtle">Hand ${esc(p.handCount)} · Library ${esc(p.libraryCount)}</p>${p.hand ? zone("Hand", p.hand) : ""}${zone("Battlefield", p.battlefield)}${zone("Command", p.command)}${zone("Graveyard", p.graveyard)}${zone("Exile", p.exile)}</section>`).join("")}</div>${zone(
+  const interactive = s.status === "playing" && !s.result;
+  return `<div class="panel" style="margin-top:22px"><div class="panel-head"><div><div class="eyebrow">${esc(s.status)} · Turn ${esc(s.turn ?? "—")}</div><h2>${esc(s.phase || "Waiting for game")}</h2></div><span class="subtle">${esc(s.error || "")}</span></div><div class="panel-body">${resultView(s)}${interactive && s.prompt ? promptView(s.prompt) : ""}<div class="split">${(s.players || []).map((p, i) => `<section><div class="game-header"><h2 class="section-title">${interactive ? `<button class="card-name" data-player="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name)} ${i === 0 ? "" : '<span class="subtle">CPU</span>'}</h2><div class="life">${esc(p.life)} <small>life</small></div></div><p class="subtle">Hand ${esc(p.handCount)} · Library ${esc(p.libraryCount)}</p>${p.hand ? zone("Hand", p.hand, interactive) : ""}${zone("Battlefield", p.battlefield, interactive)}${zone("Command", p.command, interactive)}${zone("Graveyard", p.graveyard, interactive)}${zone("Exile", p.exile, interactive)}</section>`).join("")}</div>${zone(
     "Stack",
-    (s.stack || []).map((x) => ({ ...x, name: x.label })),
+    (s.stack || []).map((x) => ({ ...x, name: x.label })), interactive,
   )}${s.log?.length ? `<div class="section-label">Game log</div><p class="subtle">${s.log.slice(-8).map(esc).join("<br>")}</p>` : ""}</div></div>`;
 }
-function zone(name, list = []) {
-  return `<div class="zone"><h3>${name} · ${list.length}</h3><div class="zone-cards">${list.map((c) => `<button class="game-card" data-card="${esc(c.id)}">${esc(c.name)}<span>${esc([c.mana, c.type, c.pt, c.tapped ? "Tapped" : "", c.counters].filter(Boolean).join(" · "))}</span></button>`).join("") || '<span class="subtle">Empty</span>'}</div></div>`;
+function zone(name, list = [], interactive = true) {
+  return `<div class="zone"><h3>${name} · ${list.length}</h3><div class="zone-cards">${list.map((c) => `<${interactive ? `button class="game-card" data-card="${esc(c.id)}"` : 'div class="game-card"'}>${esc(c.name)}<span>${esc([c.mana, c.type, c.pt, c.tapped ? "Tapped" : "", c.counters].filter(Boolean).join(" · "))}</span></${interactive ? "button" : "div"}>`).join("") || '<span class="subtle">Empty</span>'}</div></div>`;
 }
 function promptView(p) {
+  if (p.kind === "reveal") return `<div class="prompt"><h3>${esc(p.message)}</h3><ul class="revealed-items">${p.items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul><button class="button primary" data-prompt-button="ok">Continue</button></div>`;
   if (p.kind === "allocation") return allocationView(p);
+  if (p.kind === "input") return inputView(p);
+  if (p.kind === "manipulate") return manipulationView(p);
   let choices = p.choices || [],
     buttons = p.buttons || [];
   return `<div class="prompt"><h3>${esc(p.message || "Your action")}</h3>${p.kind === "unsupported" ? "<p>Forge cannot present this choice in the browser yet.</p>" : ""}${["choices", "order"].includes(p.kind) ? `<p class="subtle">${p.kind === "order" ? "Select choices in the requested order." : "Choose " + (p.min ?? 0) + "–" + (p.max ?? choices.length) + "."}</p>${choices.map((c) => `<label class="choice"><input type="checkbox" name="choice" value="${esc(c.id)}" ${state.selection.ids.includes(String(c.id)) ? "checked" : ""}>${esc(c.label)}</label>`).join("")}<p id="choice-order" class="subtle" aria-live="polite">${p.kind === "order" ? "Order: " + state.selection.ids.map((id) => choices.find((c) => String(c.id) === id)?.label || id).join(" → ") : ""}</p><button class="button primary" data-action="submit-choice">Submit selection</button>` : ""}${p.kind === "number" ? `<div class="field"><label for="number-choice">NUMBER (${esc(p.min ?? 0)}–${esc(p.max ?? "")})</label><input id="number-choice" type="number" min="${esc(p.min ?? 0)}" max="${esc(p.max ?? "")}" value="${esc(state.selection.number ?? p.min ?? 0)}"></div><button class="button primary" data-action="submit-number">Submit</button>` : ""}<div class="toolbar">${buttons.map((b) => `<button class="button" data-prompt-button="${esc(b.id)}" ${b.enabled ? "" : "disabled"}>${esc(b.label)}</button>`).join("")}${!buttons.length && ["confirm", "message", "priority"].includes(p.kind) ? '<button class="button" data-prompt-button="ok">OK</button><button class="button" data-prompt-button="cancel">Cancel</button>' : ""}</div></div>`;
+}
+function inputView(p) {
+  const options = p.options;
+  return `<form class="prompt" id="input-form" data-prompt-id="${esc(p.id)}" data-match-id="${esc(state.snapshot.matchId)}"><h3>${esc(p.title || "Enter a response")}</h3><div class="field"><label for="prompt-input">${esc(p.message)}</label>${options == null
+    ? `<input id="prompt-input" data-prompt-control="input" data-prompt-id="${esc(p.id)}" type="text" ${p.numeric ? 'inputmode="numeric"' : ""} value="${esc(state.selection.inputValue)}">`
+    : `<select id="prompt-input" data-prompt-control="input" data-prompt-id="${esc(p.id)}" ${options.length ? "" : "disabled"}>${options.map((option) => `<option value="${esc(option.id)}" ${state.selection.optionId === option.id ? "selected" : ""}>${esc(option.label)}</option>`).join("")}</select>`}</div>${options?.length === 0 ? '<p class="subtle">No options are available. Cancel to return to the game.</p>' : ""}<div class="toolbar"><button class="button primary" type="submit" ${options?.length === 0 ? "disabled" : ""}>Confirm response</button><button class="button" type="button" data-action="cancel-input">Cancel</button></div></form>`;
+}
+function manipulationCards(p) {
+  const cards = new Map(p.cards.map((card) => [card.id, card]));
+  return state.selection.cardIds.map((id) => cards.get(id));
+}
+function manipulationDestinations(p, ordered, sourceId) {
+  const remaining = ordered.filter((card) => card.id !== sourceId);
+  return Array.from({ length: remaining.length + 1 }, (_, index) => index).filter((index) =>
+    p.toAnywhere || (p.toTop && remaining.slice(0, index).every((card) => card.movable)) ||
+    (p.toBottom && remaining.slice(index).every((card) => card.movable)));
+}
+function manipulationView(p) {
+  const ordered = manipulationCards(p), movable = ordered.filter((card) => card.movable);
+  const sourceId = state.selection.sourceId;
+  const destinations = sourceId ? manipulationDestinations(p, ordered, sourceId) : [];
+  if (!destinations.includes(Number(state.selection.destination))) state.selection.destination = destinations[0] ?? null;
+  return `<form class="prompt" id="manipulation-form" data-prompt-id="${esc(p.id)}" data-match-id="${esc(state.snapshot.matchId)}"><h3>${esc(p.message)}</h3><p class="subtle">Move the available cards, then confirm the complete order. The first card is at the top.</p><ol class="manipulation-list">${ordered.map((card) => `<li><span>${esc(card.label)}</span><small>${card.movable ? "Movable" : "Fixed"}</small></li>`).join("")}</ol><div class="manipulation-controls"><div class="field"><label for="manipulation-source">Card to move</label><select id="manipulation-source" data-prompt-control="source" ${movable.length ? "" : "disabled"}>${movable.map((card) => `<option value="${esc(card.id)}" ${sourceId === card.id ? "selected" : ""}>${esc(ordered.indexOf(card) + 1)}. ${esc(card.label)}</option>`).join("")}</select></div><div class="field"><label for="manipulation-destination">New position</label><select id="manipulation-destination" data-prompt-control="destination" ${destinations.length ? "" : "disabled"}>${destinations.map((index) => `<option value="${index}" ${Number(state.selection.destination) === index ? "selected" : ""}>${index + 1}${index === 0 ? " · Top" : index === ordered.length - 1 ? " · Bottom" : ""}</option>`).join("")}</select></div><button class="button" id="manipulation-move" data-prompt-control="move" type="button" data-action="move-manipulation" ${destinations.length ? "" : "disabled"}>Move card</button></div><p id="manipulation-feedback" role="status">${esc(state.selection.moveMessage || "")}</p><div class="toolbar"><button class="button primary" type="submit">Confirm order</button><button class="button" type="button" data-action="reset-manipulation">Reset order</button></div></form>`;
 }
 function allocationAmounts(p) {
   return p.targets.map((target) => ({
@@ -305,13 +349,31 @@ function updateAllocationFeedback() {
   document.querySelector('#allocation-form button[type="submit"]').disabled = !!issue;
 }
 function render() {
-  const focusedAllocation = document.activeElement?.dataset.allocation;
+  const active = document.activeElement;
+  const editor = active?.closest("form.prompt");
+  const ownsEditor = editor?.dataset.promptId === state.snapshot?.prompt?.id && editor?.dataset.matchId === state.snapshot?.matchId;
+  if (state.composing && ownsEditor && state.view === "play") {
+    state.deferredRender = true;
+    return;
+  }
+  state.composing = false;
+  state.deferredRender = false;
+  const focusedAllocation = active?.dataset.allocation;
+  const focusedControl = ownsEditor ? active?.dataset.promptControl : null;
+  const selection = active?.tagName === "INPUT" && active.type === "text"
+    ? [active.selectionStart, active.selectionEnd, active.selectionDirection] : null;
   if (state.view === "library") library();
   else if (state.view === "editor") editor();
   else play();
   if (focusedAllocation)
     [...app.querySelectorAll("[data-allocation]")]
       .find((input) => input.dataset.allocation === focusedAllocation)?.focus();
+  if (focusedControl) {
+    const next = [...app.querySelectorAll("[data-prompt-control]")]
+      .find((control) => control.dataset.promptControl === focusedControl);
+    next?.focus({ preventScroll: true });
+    if (selection && next?.tagName === "INPUT" && next.type === "text") next.setSelectionRange(...selection);
+  }
 }
 async function api(path, options = {}) {
   const r = await fetch(state.url.replace(/\/$/, "") + "/api/v1/" + path, {
@@ -349,12 +411,20 @@ function acceptSnapshot(snapshot) {
     !Number.isSafeInteger(snapshot.revision)
   )
     throw Error("The companion returned an invalid match snapshot.");
-  if (state.selection.promptId !== snapshot.prompt?.id) {
+  if (state.selection.matchId !== snapshot.matchId || state.selection.promptId !== snapshot.prompt?.id) {
+    const p = snapshot.prompt;
     state.selection = {
+      matchId: snapshot.matchId,
       promptId: snapshot.prompt?.id ?? null,
       ids: [],
       number: null,
       allocations: {},
+      inputValue: p?.initial ?? "",
+      optionId: p?.options?.find((option) => option.label === p.initial)?.id ?? p?.options?.[0]?.id ?? null,
+      cardIds: p?.cards?.map((card) => card.id) ?? [],
+      sourceId: p?.cards?.find((card) => card.movable)?.id ?? null,
+      destination: null,
+      moveMessage: "",
     };
   }
   state.snapshot = snapshot;
@@ -384,9 +454,10 @@ async function poll() {
 }
 async function action(kind, extra = {}) {
   if (!state.snapshot?.matchId || state.busy) return;
+  const s = state.snapshot;
+  const ownsPrompt = () => state.snapshot?.matchId === s.matchId && state.snapshot?.prompt?.id === s.prompt?.id;
   state.busy = true;
   try {
-    const s = state.snapshot;
     let result = await api("action", {
       method: "POST",
       body: JSON.stringify({
@@ -397,19 +468,32 @@ async function action(kind, extra = {}) {
         ...extra,
       }),
     });
+    if (!ownsPrompt()) return;
     if (result?.players) acceptSnapshot(result);
     else {
       let next = await api("match");
+      if (!ownsPrompt()) return;
       acceptSnapshot(next);
     }
     render();
   } catch (e) {
-    if (/stale (revision|prompt)/i.test(e.message)) {
+    if (!ownsPrompt()) return;
+    const stale = /stale (revision|prompt)/i.test(e.message);
+    if (stale || e.message === "Match is over") {
       try {
-        acceptSnapshot(await api("match"));
+        const next = await api("match");
+        if (!ownsPrompt()) return;
+        if (next.matchId !== s.matchId) {
+          toast(`Action failed: ${e.message}`);
+          return;
+        }
+        acceptSnapshot(next);
         render();
-      } catch {}
-      toast("The game moved on. Review the current prompt and try again.");
+        if (["finished", "error"].includes(state.snapshot.status)) return;
+        toast(stale ? "The game moved on. Review the current prompt and try again." : `Action failed: ${e.message}`);
+      } catch (refreshError) {
+        if (ownsPrompt()) toast(`Could not refresh game: ${refreshError.message}`);
+      }
     } else toast(`Action failed: ${e.message}`);
   } finally {
     state.busy = false;
@@ -680,9 +764,41 @@ app.addEventListener("click", async (e) => {
     render();
   }
   if (a === "skip-allocation") action("skip");
+  if (a === "cancel-input") action("cancel");
+  if (a === "move-manipulation") {
+    const p = state.snapshot?.prompt;
+    if (p?.kind !== "manipulate") return;
+    const ordered = manipulationCards(p), source = state.selection.sourceId;
+    const destination = Number(state.selection.destination);
+    if (!ordered.find((card) => card.id === source)?.movable ||
+        !manipulationDestinations(p, ordered, source).includes(destination)) return;
+    const ids = state.selection.cardIds.filter((id) => id !== source);
+    ids.splice(destination, 0, source);
+    state.selection.cardIds = ids;
+    state.selection.moveMessage = `Card moved to position ${destination + 1}.`;
+    render();
+  }
+  if (a === "reset-manipulation") {
+    state.selection.cardIds = state.snapshot.prompt.cards.map((card) => card.id);
+    state.selection.destination = null;
+    state.selection.moveMessage = "Original order restored.";
+    render();
+  }
 });
 
 app.addEventListener("submit", (e) => {
+  if (e.target.id === "input-form") {
+    e.preventDefault();
+    const p = state.snapshot?.prompt;
+    if (p?.kind !== "input" || p.options?.length === 0 || state.composing) return;
+    action("input", p.options == null ? { value: state.selection.inputValue } : { optionId: state.selection.optionId });
+    return;
+  }
+  if (e.target.id === "manipulation-form") {
+    e.preventDefault();
+    if (state.snapshot?.prompt?.kind === "manipulate") action("manipulate", { cardIds: state.selection.cardIds });
+    return;
+  }
   if (e.target.id !== "allocation-form") return;
   e.preventDefault();
   const prompt = state.snapshot?.prompt;
@@ -690,6 +806,22 @@ app.addEventListener("submit", (e) => {
   const amounts = allocationAmounts(prompt);
   if (!e.target.reportValidity() || allocationIssue(prompt, amounts)) return;
   action("allocation", { allocations: amounts });
+});
+
+app.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && e.target.closest("#input-form") && !e.isComposing) {
+    e.preventDefault();
+    action("cancel");
+  }
+});
+app.addEventListener("compositionstart", (e) => {
+  if (e.target.id === "prompt-input") state.composing = true;
+});
+app.addEventListener("compositionend", (e) => {
+  if (e.target.id !== "prompt-input") return;
+  state.selection.inputValue = e.target.value;
+  state.composing = false;
+  if (state.deferredRender) render();
 });
 
 modal.addEventListener("click", async (e) => {
@@ -827,6 +959,10 @@ modal.addEventListener("change", async (e) => {
 });
 
 app.addEventListener("input", (e) => {
+  if (e.target.id === "prompt-input") {
+    if (state.snapshot?.prompt?.options == null) state.selection.inputValue = e.target.value;
+    else state.selection.optionId = e.target.value;
+  }
   if (e.target.name === "allocation") {
     state.selection.allocations[e.target.dataset.allocation] = e.target.value;
     updateAllocationFeedback();
@@ -843,6 +979,12 @@ app.addEventListener("input", (e) => {
 });
 
 app.addEventListener("change", (e) => {
+  if (e.target.id === "manipulation-source") {
+    state.selection.sourceId = e.target.value;
+    state.selection.destination = null;
+    render();
+  }
+  if (e.target.id === "manipulation-destination") state.selection.destination = e.target.value;
   if (e.target.name === "choice") {
     const selection = state.selection;
     selection.ids = selection.ids.filter((id) => id !== e.target.value);

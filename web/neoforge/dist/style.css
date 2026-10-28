@@ -692,6 +692,37 @@ dialog::backdrop {
     max-height: 450px;
   }
 }
+.manipulation-list {
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px 8px 8px 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.manipulation-list li {
+  padding: 7px 4px;
+  overflow-wrap: anywhere;
+}
+.manipulation-list small {
+  margin-left: 10px;
+  color: var(--muted);
+}
+.manipulation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+.manipulation-controls .field {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.manipulation-controls select,
+#input-form input,
+#input-form select {
+  width: 100%;
+  min-width: 0;
+}
 @media (max-width: 560px) {
   .brand {
     font-size: 19px;
@@ -733,4 +764,25 @@ dialog::backdrop {
   .panel-body {
     padding: 16px;
   }
+}
+
+.game-result {
+  margin-bottom: 24px;
+  padding: 22px;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.game-result ul {
+  padding: 0;
+  list-style: none;
+}
+.game-result li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+}
+.game-result li span {
+  color: var(--muted);
 }

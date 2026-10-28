@@ -40,8 +40,7 @@ jobs:
       - name: Compile Forge and resolve exact runtime dependencies
         shell: bash
         run: |
-          mvn -B -pl forge-gui-desktop -am install -DskipTests -Dcheckstyle.skip
-          mvn -B -f forge-gui-desktop/pom.xml dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=target/player-runtime-classpath.txt
+          mvn -B -pl forge-gui-desktop -am -DskipTests -Dcheckstyle.skip compile org.apache.maven.plugins:maven-dependency-plugin:3.1.2:build-classpath -DincludeScope=runtime -Dmdep.outputFile="$RUNNER_TEMP/player-runtime-classpath.txt"
       - name: Generate catalogue provenance
         shell: bash
         run: |
@@ -53,7 +52,7 @@ jobs:
           RELAY_ORIGIN: ${{ inputs.relay_origin }}
         shell: bash
         run: |
-          python tools/player-client/package.py --classpath-file forge-gui-desktop/target/player-runtime-classpath.txt --output "$RUNNER_TEMP/player-client" --relay-origin "$RELAY_ORIGIN" --catalog-dir "$RUNNER_TEMP/catalog/dist/data"
+          python tools/player-client/package.py --classpath-file "$RUNNER_TEMP/player-runtime-classpath.txt" --output "$RUNNER_TEMP/player-client" --relay-origin "$RELAY_ORIGIN" --catalog-dir "$RUNNER_TEMP/catalog/dist/data"
       - name: Smoke native launcher without build tools on PATH
         shell: python
         run: |

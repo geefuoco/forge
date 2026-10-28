@@ -102,7 +102,7 @@ public final class DesktopClient implements AutoCloseable {
                 Room r = room;
                 if (r != null && r.guest) { send(x, relay(r, "GET", "/snapshot", null)); return; }
                 if (r != null && relayError != null) { reply(x, 503, Bridge.error(relayError)); return; }
-                Bridge.replyRaw(x, 200, match == null ? waiting(false) : match.snapshot); return;
+                Bridge.replyRaw(x, 200, hostSnapshot()); return;
             }
             if (!method.equals("POST")) { reply(x, 404, Bridge.error("Unknown endpoint")); return; }
             if (!"application/json".equalsIgnoreCase(x.getRequestHeaders().getFirst("Content-Type"))) { reply(x, 415, Bridge.error("Expected application/json")); return; }
@@ -171,7 +171,7 @@ public final class DesktopClient implements AutoCloseable {
         Path file = web.resolve(path.equals("/") ? "index.html" : path.substring(1)).normalize();
         if (!file.startsWith(web) || !Files.isRegularFile(file) || !file.toRealPath().startsWith(web.toRealPath())) { reply(x, 404, Bridge.error("File not found")); return; }
         long size = Files.size(file);
-        if (size > 8_000_000) { reply(x, 413, Bridge.error("File too large")); return; }
+        if (size > 32_000_000) { reply(x, 413, Bridge.error("File too large")); return; }
         String name = file.getFileName().toString();
         x.getResponseHeaders().set("Content-Type", name.endsWith(".html") ? "text/html; charset=utf-8" : name.endsWith(".js") ? "text/javascript; charset=utf-8" : name.endsWith(".css") ? "text/css; charset=utf-8" : "application/octet-stream");
         x.sendResponseHeaders(200, size); Files.copy(file, x.getResponseBody());
@@ -192,7 +192,7 @@ public final class DesktopClient implements AutoCloseable {
         }
         match = candidate;
         if (room == null) startEngine();
-        Bridge.replyRaw(x, 202, match.snapshot);
+        Bridge.replyRaw(x, 202, hostSnapshot());
     }
     void startEngine() { if (!engineStarted) { engineStarted = true; engine.execute(match::start); } }
     void join(HttpExchange x, JsonObject body) throws Exception {
@@ -274,6 +274,13 @@ public final class DesktopClient implements AutoCloseable {
                 }
             }
         } catch (Exception e) { relayError = "Relay connection failed; keep this host app open and refresh"; }
+    }
+    String hostSnapshot() {
+        if (match == null) return waiting(false);
+        if (room != null && !room.guest && !engineStarted)
+            return JSON.toJson(Bridge.map("schemaVersion", 1, "status", "waiting", "matchId", match.id,
+                    "revision", 0, "seat", 0, "players", List.of(), "stack", List.of()));
+        return match.snapshot;
     }
     static String waiting(boolean guest) { return JSON.toJson(Bridge.map("schemaVersion", 1, "status", "idle", "revision", 0, "seat", guest ? 1 : 0, "players", List.of(), "stack", List.of())); }
     static void reply(HttpExchange x, int status, Object body) throws IOException { Bridge.replyRaw(x, status, JSON.toJson(body)); }

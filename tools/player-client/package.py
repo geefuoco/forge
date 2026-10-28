@@ -83,7 +83,8 @@ def stage(root, payload, classpath, jdk, build_id, relay, catalog=None):
         names.append('lib/' + urllib.parse.quote(name))
     with tempfile.TemporaryDirectory(prefix='neoforge-classes-') as temporary:
         compiled = Path(temporary)
-        sources = [root / 'tools/browser-bridge/src/forge/browser/Bridge.java',
+        sources = [root / 'forge-gui/src/main/java/forge/localinstance/properties/ForgeProfileProperties.java',
+                   root / 'tools/browser-bridge/src/forge/browser/Bridge.java',
                    root / 'tools/player-client/src/forge/browser/DesktopClient.java']
         run([jdk / 'bin' / executable('javac'), '--release', '21', '-cp',
              os.pathsep.join(map(str, entries)), '-d', compiled, *sources], root)

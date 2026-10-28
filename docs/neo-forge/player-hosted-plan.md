@@ -10,6 +10,8 @@ The host selects both decks and creates a friend lobby. The guest starts the sam
 
 The installed client stores decks in its private user profile. Browser storage alone is insufficient because each launch can choose a different loopback port.
 
+The installed interface also saves the relay address in that profile. The same binary can connect to an operator's relay without a new package. A launch option overrides the saved address, which overrides the packaged default. An explicit empty saved address disables hosting. Reset restores the packaged default. The client prevents changes after starting or joining a game, because the current application owns that game until exit.
+
 ## One engine decides the game
 
 The host's `Bridge.MatchSession` owns the game. Forge retains all rules and CPU decisions. Each human has a separate `SeatView`, controller, prompt, handles, and snapshot. The host reads seat zero locally. Only seat one's projection goes to the relay. The guest runs no second simulation that can diverge.

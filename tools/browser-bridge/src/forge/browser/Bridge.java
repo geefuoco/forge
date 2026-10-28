@@ -153,6 +153,9 @@ public final class Bridge {
         return deck;
     }
     static final class InlineGui extends GuiDesktop {
+        @Override public String getAssetsDir() {
+            return System.getProperty("forge.player.assets", super.getAssetsDir());
+        }
         @Override public void invokeInEdtNow(Runnable r) { r.run(); }
         @Override public void invokeInEdtLater(Runnable r) { r.run(); }
         @Override public void invokeInEdtAndWait(Runnable r) { r.run(); }

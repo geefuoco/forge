@@ -933,7 +933,7 @@ modal.addEventListener("click", async (e) => {
     renderRelaySettings();
     try {
       const savedSettings = await api("settings", { method: "POST", body: JSON.stringify(body) });
-      state.session = await api("session");
+      state.session.relayConfigured = !!savedSettings.relayOrigin;
       if (relayModalOpen(id)) {
         relaySettings = savedSettings;
         relayDraft = savedSettings.relayOrigin;

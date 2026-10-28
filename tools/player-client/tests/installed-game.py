@@ -134,14 +134,32 @@ def main(image, work):
                     page.locator('[data-action="save-relay"]').click()
                     expect(page.locator('#relay-error')).not_to_be_empty()
                     assert page.locator('#relay-origin').input_value() == 'https://invalid.example/path'
+                    page.evaluate('''() => {
+                        window.originalFetch = window.fetch;
+                        window.fetch = (url, options) => {
+                            if (String(url).endsWith('/api/v1/session') && (!options?.method || options.method === 'GET')) {
+                                return Promise.reject(new Error('forced session failure'));
+                            }
+                            return window.originalFetch(url, options);
+                        };
+                    }''')
                 page.locator('#relay-origin').fill(origin)
                 page.locator('[data-action="save-relay"]').click()
                 expect(page.locator('#relay-notice')).to_have_text('Relay saved.')
-                expect(page.locator('#dialog-content')).to_contain_text(origin)
+                expect(page.locator('#dialog-content p:has(strong)')).to_contain_text(origin)
                 if role == 'host':
+                    expect(page.locator('#relay-error')).to_be_empty()
+                    page.evaluate('''() => {
+                        window.fetch = window.originalFetch;
+                        delete window.originalFetch;
+                    }''')
                     page.screenshot(path=str(work / 'relay-settings.png'), full_page=True)
                 page.locator('#dialog-content [data-action="close"]').click()
+                if role == 'host':
+                    page.locator('[data-nav="play"]').click()
+                    expect(page.locator('.main')).not_to_contain_text('No relay is set')
             checks.append('relay saved through Client info; invalid draft survives server error')
+            checks.append('save succeeds and session UI updates when a session GET would fail')
             process, stream = running[0]
             process.terminate()
             process.wait(timeout=20)

@@ -79,6 +79,39 @@ const state = {
   timer: null,
 };
 const desktopClient = () => state.session.transport === "desktop";
+let relaySettings = null, relayDraft = "", relayError = "", relayNotice = "", relayBusy = false, relayModalId = 0;
+const relayModalOpen = (id) => dialog.open && id === relayModalId && !!modal.querySelector("#relay-origin");
+const relaySources = {
+  commandLine: "Set when this app started",
+  saved: "Saved in this app",
+  packaged: "Included with this app",
+  none: "No relay set",
+  invalidSaved: "Saved address needs attention",
+};
+function renderRelaySettings() {
+  const settings = relaySettings;
+  const locked = !settings || settings.locked || relayBusy;
+  const reason = settings?.source === "commandLine"
+    ? "This address was set when the app started. Restart without that setting to change it here."
+    : settings?.locked ? "Restart the app to change the relay after starting a game." : "";
+  modal.innerHTML = `<div class="modal"><h2>Client info</h2><p>Forge runs on your computer. A relay lets you host a game for a friend.</p>${settings
+    ? `<p><strong>Current relay</strong><br>${settings.relayOrigin ? esc(settings.relayOrigin) : "None"}<br><span class="subtle">${esc(relaySources[settings.source] || settings.source)}</span></p>${settings.packagedOrigin ? `<p class="subtle">App default: ${esc(settings.packagedOrigin)}</p>` : ""}${settings.warning ? `<div class="notice">${esc(settings.warning)}</div>` : ""}${reason ? `<p class="subtle">${esc(reason)}</p>` : ""}`
+    : '<p class="subtle">Loading relay settings...</p>'}<div class="field"><label for="relay-origin">RELAY ADDRESS</label><input id="relay-origin" type="url" autocomplete="off" spellcheck="false" maxlength="2048" placeholder="https://relay.example" value="${esc(relayDraft)}" ${locked ? "disabled" : ""}></div><p id="relay-error" role="alert">${esc(relayError)}</p><p id="relay-notice" role="status">${esc(relayNotice)}</p><div class="modal-actions"><button class="button" data-action="close">Close</button>${settings ? `<button class="button" data-action="reset-relay" ${locked ? "disabled" : ""}>Use app default</button><button class="button" data-action="clear-relay" ${locked ? "disabled" : ""}>Clear relay</button><button class="button primary" data-action="save-relay" ${locked ? "disabled" : ""}>Save relay</button>` : '<button class="button" data-action="retry-relay">Retry</button>'}</div></div>`;
+}
+async function loadRelaySettings() {
+  const id = relayModalId;
+  try {
+    const settings = await api("settings");
+    if (!relayModalOpen(id)) return;
+    if (!relaySettings) relayDraft = settings.relayOrigin;
+    relaySettings = settings;
+    relayError = "";
+  } catch (error) {
+    if (!relayModalOpen(id)) return;
+    relayError = `Could not load relay settings. ${error.message}`;
+  }
+  renderRelaySettings();
+}
 const deck = () => state.decks.find((d) => d.id === state.deckId);
 function save() {
   if (desktopClient()) {
@@ -262,7 +295,7 @@ function play() {
     ? `<div class="panel"><div class="panel-head"><h2>${desktopClient() ? "Host a match" : "Start a match"}</h2><span class="subtle">${desktopClient() ? "Forge runs on your computer" : "Hosted by Forge"}</span></div><div class="panel-body"><div class="field"><label for="match-mode">OPPONENT</label><select id="match-mode"><option value="cpu" ${state.mode === "cpu" ? "selected" : ""}>Forge CPU</option><option value="human" ${state.mode === "human" ? "selected" : ""}>A friend</option></select></div><div class="split"><div class="field"><label for="human-deck">YOUR DECK</label><select id="human-deck">${deckOptions()}</select></div><div class="field"><label for="ai-deck">OPPONENT DECK</label><select id="ai-deck">${deckOptions()}</select></div></div><button class="button primary" data-action="start" ${state.decks.length ? "" : "disabled"}>Start match</button> <span class="subtle">Forge validates both decks before play.</span></div></div>`
     : `<div class="notice">Your guest session cannot create matches. Open a new invitation from your friend to play again.</div>`;
   const lobby = s?.status === "waiting" ? `<section class="panel lobby" aria-live="polite"><h2>Waiting for your friend</h2><p>Your seat is reserved. The game starts when your friend joins.</p>${state.session.seat === 0 ? `<button class="button primary" data-action="invite">${desktopClient() ? "Show invitation" : state.inviteUrl ? "Replace invitation" : "Generate invitation"}</button>${state.inviteUrl ? `<div class="field"><label for="invite-url">ONE-USE INVITATION</label><input id="invite-url" readonly value="${esc(state.inviteUrl)}"></div><button class="button" data-action="copy-invite">Copy invitation</button><p class="subtle">Keep this link private. ${desktopClient() ? "Your friend pastes this invitation into their installed NeoForge client. Keep your app running." : "A replacement invalidates the previous invitation."}</p>` : ""}` : ""}</section>` : "";
-  shell(`<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>${desktopClient() ? "Play locally against the CPU, or host a game for a friend. Keep the host app running during online play." : "A real game powered by Forge on the server."}</p></div>${state.connected && !s?.result && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${desktopClient() && state.connected && !state.session.hasMatch ? '<button class="button" data-action="join-friend">Join a friend</button>' : ""}${desktopClient() && !state.session.relayConfigured && !state.session.hasMatch ? '<p class="subtle">This build has no relay configured for hosting online games. You can play the CPU or paste a friend’s invitation to join.</p>' : ""}${entry}${lobby}${s && s.status !== "idle" && s.status !== "waiting" && state.connected ? matchView(s) : ""}`);
+  shell(`<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>${desktopClient() ? "Play locally against the CPU, or host a game for a friend. Keep the host app running during online play." : "A real game powered by Forge on the server."}</p></div>${state.connected && !s?.result && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${desktopClient() && state.connected && !state.session.hasMatch ? '<button class="button" data-action="join-friend">Join a friend</button>' : ""}${desktopClient() && !state.session.relayConfigured && !state.session.hasMatch ? '<p class="subtle">No relay is set for hosting online games. Open Client info to save one, play the CPU, or paste a friend’s invitation to join.</p>' : ""}${entry}${lobby}${s && s.status !== "idle" && s.status !== "waiting" && state.connected ? matchView(s) : ""}`);
 }
 function deckOptions() {
   return state.decks
@@ -735,7 +768,14 @@ app.addEventListener("click", async (e) => {
     openModal(`<h2>Welcome to NeoForge</h2><p>Build Commander decks from the card catalogue. Decks stay in this browser, so export them to keep a copy.</p><p>Sign in with the private service access key to host a match against Forge's CPU or a friend. Choose both decks. For a friend, generate a private invitation in the waiting lobby. Invitations work once.</p><p>Your session reconnects on reload in this browser. Full accounts are planned for a later milestone. Test draw is a sample hand, separate from real play.</p><div class="modal-actions"><button class="button primary" data-action="close">Got it</button></div>`);
   }
   if (a === "connect" && desktopClient()) {
-    openModal('<h2>NeoForge client</h2><p>Forge and Java are included with this application. Your browser displays the interface locally. The host runs the game; the relay carries your friend’s actions and private game view.</p><p>Keep the host application open. Closing the host ends the game. Network reconnect works while both applications remain open.</p><div class="modal-actions"><button class="button primary" data-action="close">Close</button></div>');
+    relayModalId++;
+    relaySettings = null;
+    relayDraft = "";
+    relayError = "";
+    relayNotice = "";
+    openModal("");
+    renderRelaySettings();
+    await loadRelaySettings();
   }
   if (a === "connect" && !desktopClient()) {
     openModal(`<h2>${state.session.authenticated ? "Your session" : "Sign in to host"}</h2><p>Enter the private service access key to create matches. Friends can join with an invitation. Full accounts are planned for a later milestone.</p><div class="field"><label for="access-key">SERVICE ACCESS KEY</label><input id="access-key" type="password" autocomplete="off"></div><p id="connect-error" role="status"></p><div class="modal-actions">${state.session.authenticated ? '<button class="button danger" data-action="logout">Sign out</button>' : ""}<button class="button" data-action="close">Cancel</button><button class="button primary" data-action="login">Sign in</button></div>`);
@@ -881,6 +921,34 @@ modal.addEventListener("click", async (e) => {
   let b = e.target.closest("button");
   if (!b) return;
   let a = b.dataset.action;
+  if (a === "retry-relay") { await loadRelaySettings(); return; }
+  if (["save-relay", "clear-relay", "reset-relay"].includes(a)) {
+    if (relayBusy || !relaySettings || relaySettings.locked) return;
+    const id = relayModalId;
+    const body = a === "reset-relay" ? { reset: true }
+      : { relayOrigin: a === "clear-relay" ? "" : relayDraft.trim() };
+    relayBusy = true;
+    relayError = "";
+    relayNotice = "";
+    renderRelaySettings();
+    try {
+      const savedSettings = await api("settings", { method: "POST", body: JSON.stringify(body) });
+      state.session = await api("session");
+      if (relayModalOpen(id)) {
+        relaySettings = savedSettings;
+        relayDraft = savedSettings.relayOrigin;
+        relayNotice = a === "reset-relay" ? "App default restored." : a === "clear-relay" ? "Relay cleared." : "Relay saved.";
+      }
+      render();
+    } catch (error) {
+      if (relayModalOpen(id)) relayError = error.message;
+    } finally {
+      relayBusy = false;
+      if (relayModalOpen(id)) renderRelaySettings();
+      else if (relayModalOpen(relayModalId)) await loadRelaySettings();
+    }
+    return;
+  }
   if (b.dataset.stock) {
     let p = precons.find((x) => x.id === b.dataset.stock);
     createDeck(p.name, p.entries);
@@ -1003,6 +1071,9 @@ modal.addEventListener("change", async (e) => {
   if (e.target.id === "import-file" && e.target.files[0])
     document.querySelector("#import-text").value =
       await e.target.files[0].text();
+});
+modal.addEventListener("input", (e) => {
+  if (e.target.id === "relay-origin") relayDraft = e.target.value;
 });
 
 app.addEventListener("input", (e) => {

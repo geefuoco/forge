@@ -35,10 +35,14 @@ A real browser-driven stock match exposed a turn-13 transformed-card reveal that
 
 The browser also refreshes the authoritative match after a last-click terminal refusal. Fifteen controlled Chromium race cases cover terminal recovery, newer prompts and matches, stale revisions, nonterminal responses, and real refresh failures. Independent engine and browser reviews passed on the combined implementation. Checks used existing built Forge classes with freshly compiled companion source.
 
+## Installation-free target
+
+On 2026-10-28 the user confirmed that the final product must run entirely through the hosted website without installing Forge, Java, a desktop client, or the companion. The Java engine will run on hosted infrastructure. The current Site still requires the local companion and is a prototype of the browser protocol. See `docs/neo-forge/v1-specification.md`, milestone 2, for the hosted-engine acceptance checks.
+
 ## Remaining work
 
 1. Extend natural-game coverage across more decks and required decisions. One stock-deck game has completed naturally. Text input, card-list manipulation, combat damage, and generic amounts have browser controls. Sideboarding and GUI-base dialogs remain outside this milestone. The bridge reports unsupported protocol decisions explicitly instead of choosing for the human.
-2. Verify the published Site on the user's PC, including browser local-network permission and reconnect after a closed browser tab.
+2. Deliver the hosted-engine milestone. Evaluate Java hosting and cost, move authoritative games behind authenticated hosted sessions, and prove installation-free play, remote invites, privacy, isolation, and reconnect. Local-network pairing is a prototype check, not a release requirement.
 3. Continue the existing first-release milestones for remote invites, durable game save and restore, replay, stronger AI assessment, and measured rendering performance. No 60 FPS measurement is claimed for this version.
 4. Improve the game-board layout and richer card presentation after the remaining decisions work.
 

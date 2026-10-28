@@ -1,12 +1,12 @@
 # Commander application discovery
 
-Updated 2026-10-25. This is a working requirements record, not an approved implementation specification.
+Updated 2026-10-28. This is a working requirements record, not an approved implementation specification.
 
 ## Confirmed requirements
 
 The application is dedicated to MTG Commander and uses a fork of [Card-Forge/forge](https://github.com/Card-Forge/forge).
 
-- Use a browser UI with a locally running game engine.
+- Open the hosted website and play without installing Forge, Java, a desktop client, or a local companion. Host the Java Forge engine on server infrastructure. This requirement, confirmed on 2026-10-28, supersedes the original local-engine deployment model.
 - Serve the user and their friends as a private application.
 - Launch with two-player Commander. Expand to four seats after the two-player experience works well.
 - Allow remote friends to join the same game, with CPUs filling empty player seats.
@@ -22,7 +22,7 @@ The application is dedicated to MTG Commander and uses a fork of [Card-Forge/for
 - Support watching games and CPU versus CPU games.
 - Provide live spectator pause, speed changes, stepping, and all-hand inspection for CPU games.
 - Support saving and resuming games and reviewing recorded replays.
-- Provide autosave and manual saves that survive closing the application or restarting the host PC.
+- Provide server-owned autosave and manual saves that survive browser closure, disconnects, and hosted engine restarts.
 - Target strong casual CPU play with varied decks.
 - Treat CPU quality as an early feasibility requirement. The user needs an opponent worth playing against, not merely a game that completes.
 - Choose the frontend technology for the quality of the experience.
@@ -33,7 +33,7 @@ The application is dedicated to MTG Commander and uses a fork of [Card-Forge/for
 - Establish a repeatable process for upstream card changes and bug fixes.
 - Discuss the user stories and agree on acceptance criteria before product implementation.
 
-The initial table supports one human against one CPU, two remote humans, or two CPUs with a spectator. Four-player Commander is a later milestone, not a first-release acceptance requirement. The engine remains local. Browser invites must provide remote access to that engine while it runs. An internet-reachable host connection, tunnel, or relay is an architectural implication to investigate, not a selected service. Hosting cost and setup constraints remain open.
+The initial table supports one human against one CPU, two remote humans, or two CPUs with a spectator. Four-player Commander is a later milestone, not a first-release acceptance requirement. The target engine runs on hosted infrastructure. No player must keep a host PC running or configure a local tunnel. Browser invites connect to authenticated hosted sessions. Provider choice, Java runtime support, match isolation, persistence, transport, resource limits, and cost need a feasibility proof. The local companion remains useful for development only.
 
 ## Questions currently open
 
@@ -47,7 +47,7 @@ The user selected the same Commander rules across player counts and endorsed the
 
 All supported cards are available without ownership checks. CPU deck selection includes imported and curated decks, plus a random option. The random deck pool, compatibility filtering, and any power matching remain to be defined. Desktop and laptop play is sufficient at launch.
 
-The user accepted autosave and manual saves that survive application and PC restarts. Browser invitations are the desired remote joining experience. The user prefers MTG Arena's style but wants minimal animation and at least 60 FPS. This is a performance requirement, not a measured result or a framework choice.
+The user accepted autosave and manual saves that survive restarts. The 2026-10-28 hosted-engine requirement moves this persistence to server-owned storage. Browser invitations are the desired remote joining experience. The user prefers MTG Arena's style but wants minimal animation and at least 60 FPS. This is a performance requirement, not a measured result or a framework choice.
 
 The latest round accepts an ordinary integrated-graphics laptop as the initial hardware class, prefers free infrastructure for this hobby project, and accepts roughly one-second ordinary and five-second difficult CPU decisions as initial targets. The user raised ChatGPT Sites as a possible hosting option and emphasized that the CPU must be good enough to play against.
 
@@ -127,7 +127,7 @@ Retain the complete upstream Git history and source layout. Keep application cod
 | Extract core, game, AI, and selected shared code into a new source tree. | Gives direct control over the package. | Makes resource loading, dependency tracking, and upstream patch application our responsibility. | Reconsider only if evidence shows that retained shared code prevents a clean host. |
 | Adapt the existing desktop UI. | Reuses its input and display integration. | Does not satisfy the confirmed browser UI requirement on its own. | Useful as a reference and baseline, rather than the selected product UI. |
 
-Proposed runtime flow is a browser connected to a local Java service. The service owns the game, legal decisions, CPU turns, and persistence. It sends each viewer the state and prompts that viewer is allowed to receive, then validates returned actions. Framework and transport choices remain open.
+Historical prototype proposal, superseded for deployment on 2026-10-28. The target runtime is now a browser connected to a hosted Java service. The original proposal was a browser connected to a local Java service. The service owns the game, legal decisions, CPU turns, and persistence. It sends each viewer the state and prompts that viewer is allowed to receive, then validates returned actions. Framework and transport choices remain open.
 
 The first feasibility spike should demonstrate initialization without the desktop application, one browser-driven human choice, a complete two-seat CPU game, and spectator pause and resume. Confirm the adapter handles threads, pending prompts, and clean match cancellation. A subsequent check must demonstrate two remote human clients playing through the same authoritative host. Keep seats and per-viewer permissions explicit in the model so four-seat support can be added later. These are proposed checks, not completed work.
 
@@ -159,10 +159,10 @@ This is a proposed workflow. There is no fork, update command, scheduled automat
 | Use standard Commander rules. | Two-player games use 40 life and skip the starting player's first draw step. The standard multiplayer free-first-mulligan exception does not apply to a two-player start. Add multiplayer setup checks when expanding to four seats. |
 | Play with Arena-style automation. | Preview automatic mana payment and allow manual override. Respect configured priority stops and repeated-trigger shortcuts. Define defaults and cancellation behavior before accepting these controls. |
 | Start a game against CPUs. | Choose the table and decks, complete mulligans, cast and respond to spells, attack and block, and finish a representative game through the browser. |
-| Play a remote friend. | A friend opens a browser invite from a separate machine and joins the host's two-seat game. Complete the agreed gameplay scenarios without requiring invitees to install a VPN or configure a router. Each client receives only its permitted information. Host setup, access controls, and reconnect behavior still need definition. |
+| Play a remote friend. | A friend opens a browser invite from a separate machine and joins an authenticated hosted two-seat game without installing software or relying on a player host PC. Complete the agreed gameplay scenarios without requiring invitees to install a VPN or configure a router. Each client receives only its permitted information. Host setup, access controls, and reconnect behavior still need definition. |
 | Read a complex board. | Identify the active player, priority, stack order, targets, relevant zones, commander damage, and the next required action at the agreed screen size. Validate with a realistic crowded board. |
 | Watch a CPU game. | Start a two-CPU game with no human seats, inspect all hands, change speed, pause and resume, and leave without a stranded game thread. Define what a step advances before accepting stepping. |
-| Save and resume a game. | Automatically save an unfinished game and support manual saves. After closing the application or restarting the host PC, load and continue a saved game. Define supported save points, treatment of pending choices, autosave frequency, and engine-version compatibility before accepting this feature. |
+| Save and resume a game. | Automatically save an unfinished game and support manual saves. After browser closure or a hosted engine restart, load and continue a server-owned saved game. Define supported save points, treatment of pending choices, autosave frequency, and engine-version compatibility before accepting this feature. |
 | Keep gameplay smooth. | Meet the required 60 FPS rendering target on the agreed baseline setup during representative interaction and stress scenes, including while the CPU computes. Assess visible stalls and frame times as well as average FPS. Record CPU wait and network delay separately. |
 | Review a replay. | Open a recorded game and review its sequence using the agreed playback controls. Define visibility, navigation, and storage expectations separately from resumable game saves. |
 | Play against strong casual CPUs. | Agree on representative decks and decisions, then record decision quality, game completion, and actual waiting times under the application's AI configuration. No strength claim is established by a profile name or a running game. |

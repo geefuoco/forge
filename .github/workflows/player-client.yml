@@ -64,37 +64,9 @@ jobs:
         shell: bash
         run: |
           python tools/player-client/package.py --classpath-file "$RUNNER_TEMP/player-runtime-classpath.txt" --output "$RUNNER_TEMP/player-client" --relay-origin "$RELAY_ORIGIN" --catalog-dir "$RUNNER_TEMP/catalog/dist/data"
-      - name: Smoke native launcher without build tools on PATH
-        shell: python
-        run: |
-          import http.cookiejar, os, pathlib, subprocess, tempfile, time, urllib.request
-          image = pathlib.Path(os.environ['RUNNER_TEMP']) / 'player-client' / 'NeoForge'
-          binary = image / ('NeoForge.exe' if os.name == 'nt' else 'bin/NeoForge')
-          with tempfile.TemporaryDirectory() as directory:
-              log = pathlib.Path(directory) / 'launcher.log'
-              env = dict(os.environ)
-              env['PATH'] = os.environ.get('SystemRoot', '') + '\\System32' if os.name == 'nt' else '/nonexistent'
-              with log.open('w') as output:
-                  process = subprocess.Popen([str(binary), '--no-open', '--profile', directory], cwd=directory, env=env, stdout=output, stderr=subprocess.STDOUT)
-                  try:
-                      origin = None
-                      for attempt in range(120):
-                          text = log.read_text(errors='replace')
-                          for line in text.splitlines():
-                              if line.startswith('NeoForge client listening at '):
-                                  origin = line.split(' at ', 1)[1].strip()
-                          if origin:
-                              break
-                          if process.poll() is not None:
-                              raise RuntimeError(text)
-                          time.sleep(0.5)
-                      assert origin, log.read_text(errors='replace')
-                      browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-                      assert browser.open(origin + '/').status == 200
-                      assert browser.open(origin + '/api/v1/session').status == 200
-                  finally:
-                      process.terminate()
-                      process.wait(timeout=20)
+      - name: Smoke native launcher and Forge without build tools on PATH
+        shell: bash
+        run: python tools/player-client/tests/native-smoke.py --image "$RUNNER_TEMP/player-client/NeoForge"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: NeoForge-${{ runner.os }}

@@ -71,6 +71,18 @@ public class HostedTest {
             check(request(client, bridge, "2", "match", null).statusCode() == 403, "Invalid internal seat accepted");
             check(request(client, bridge, "1", "match", null).body().equals(guest.snapshot), "Guest HTTP snapshot crossed seats");
             check(request(client, bridge, "1", "matches", config).statusCode() == 403, "Guest created match");
+            match.send(new forge.gamemodes.net.event.GuiGameEvent(forge.gamemodes.net.ProtocolMethod.updateButtons,
+                    match.human, "OK", "Cancel", false, false, true));
+            check(!snapshot(match).has("prompt"), "Inactive controller exposed an actionable priority prompt");
+            check(match.submit(action(match, "ok")) != null, "Inactive controller accepted an action");
+            CountDownLatch selection = new CountDownLatch(1);
+            Future<?> selecting = engine.submit(() -> match.pump(selection));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (!snapshot(match).has("prompt") && System.nanoTime() < deadline) Thread.sleep(10);
+            check(snapshot(match).has("prompt"), "Card selection disappeared while both buttons were disabled");
+            check(!snapshot(guest).has("prompt"), "Guest received host card selection");
+            selection.countDown(); selecting.get(2, TimeUnit.SECONDS);
+            check(!snapshot(match).has("prompt"), "Completed input retained an actionable prompt");
             CountDownLatch done = new CountDownLatch(1);
             AtomicReference<Thread> concessionThread = new AtomicReference<>();
             IGameController controller = (IGameController)Proxy.newProxyInstance(IGameController.class.getClassLoader(), new Class<?>[]{IGameController.class}, (proxy, method, values) -> {

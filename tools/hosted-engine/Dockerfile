@@ -1,15 +1,28 @@
+# syntax=docker/dockerfile:1
 FROM maven:3.9.9-eclipse-temurin-21 AS build
-RUN apt-get update && apt-get install -y --no-install-recommends python3 git && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -s /run/secrets/proxy_ca ]; then cp /run/secrets/proxy_ca /usr/local/share/ca-certificates/build-proxy.crt; update-ca-certificates; fi; \
+    apt-get update && apt-get install -y --no-install-recommends python3 git && rm -rf /var/lib/apt/lists/* && \
+    rm -f /usr/local/share/ca-certificates/build-proxy.crt && update-ca-certificates --fresh
 WORKDIR /source
 COPY . .
 ARG SOURCE_REVISION
 RUN git init && python3 -c 'import pathlib,re,sys; revision=sys.argv[1]; assert re.fullmatch("[0-9a-f]{40}", revision), "SOURCE_REVISION must be the source git commit"; pathlib.Path(".git/HEAD").write_text(revision + "\n")' "$SOURCE_REVISION"
-RUN mvn -B -pl forge-gui-desktop -am -DskipTests compile dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=target/hosted-classpath.txt
+RUN --mount=type=secret,id=proxy_ca \
+    python3 tools/hosted-engine/maven-settings.py /tmp/hosted-settings.xml && \
+    if [ -s /run/secrets/proxy_ca ]; then keytool -importcert -noprompt -cacerts -storepass changeit -alias build-proxy -file /run/secrets/proxy_ca; fi && \
+    mvn -s /tmp/hosted-settings.xml -B -pl forge-gui-desktop -am -DskipTests compile dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=target/hosted-classpath.txt && \
+    rm /tmp/hosted-settings.xml && \
+    if [ -s /run/secrets/proxy_ca ]; then keytool -delete -cacerts -storepass changeit -alias build-proxy; fi
 RUN python3 tools/hosted-engine/prepare.py --classpath-file forge-gui-desktop/target/hosted-classpath.txt --output /bundle
 RUN python3 web/neoforge/tools/generate-catalog.py --forge-root /source
 
 FROM eclipse-temurin:21-jre-jammy AS runtime
-RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/* && useradd --uid 10001 --create-home neoforge
+RUN --mount=type=secret,id=proxy_ca \
+    if [ -s /run/secrets/proxy_ca ]; then cp /run/secrets/proxy_ca /usr/local/share/ca-certificates/build-proxy.crt; update-ca-certificates; fi; \
+    apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/* && \
+    rm -f /usr/local/share/ca-certificates/build-proxy.crt && update-ca-certificates --fresh && \
+    useradd --uid 10001 --create-home neoforge
 WORKDIR /opt/neoforge
 COPY --from=build /bundle/runtime ./runtime
 COPY --from=build /source/forge-gui/res ./forge-gui/res

@@ -31,3 +31,11 @@ Independent HTTP probes reproduced the same result with the exact bridge source 
 `MatchSession.submit` now validates an optional whole signed-long revision before either normal actions or concession can enqueue a command. Explicit null, non-numeric JSON values, fractions, and values outside the long range return a client error. Normal actions still require the current revision. Concession still permits an omitted revision.
 
 `RevisionTest` exercises the real HTTP server and a pending `ProtocolGuiGame` confirmation. It checks malformed revisions on normal and concession actions, unchanged pending decisions, valid retry, duplicate rejection, and concession without a revision. The regression failed before the fix with `Expected client error for null revision on ok, got HTTP 500`.
+
+## Card selection disappears when both buttons are disabled
+
+Status: fixed in the hosted input lifecycle change.
+
+A local real-engine browser probe stopped on turn 3 during cleanup. The game thread was waiting in `chooseCardsToDiscardToMaximumHandSize`, but the browser snapshot had no prompt. The hosted adapter had treated two disabled buttons as an inactive controller. Forge disables both buttons while the player must first select a card.
+
+The adapter now derives active priority input from the engine's `awaitInput` pump. It exposes the pending card-selection prompt while that pump waits, even when both buttons are disabled. It hides priority input and rejects answers after that pump ends. `HostedTest` covers selection visibility, inactive action rejection, and prompt cleanup. The natural-game probe is rerun through the hosted gateway.

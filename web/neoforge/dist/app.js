@@ -178,7 +178,7 @@ function shell(content) {
 }
 function library() {
   shell(
-    `<div class="title-row"><div><div class="eyebrow">Your collection of ideas</div><h1>Deck library</h1><p>Build something worth bringing to the table.</p></div><div class="toolbar"><button class="button" data-action="import">Import deck</button><button class="button primary" data-action="new">＋ New deck</button></div></div><div class="hero"><div><div class="eyebrow">The command zone awaits</div><h2>Every great game starts here.</h2><p>Explore the card catalogue, make a deck your own, and take it into a real game with Forge on your PC.</p></div><button class="button" data-action="stocks">Explore starter decks →</button></div><div class="panel"><div class="panel-head"><h2>Your decks</h2><span class="subtle">${state.decks.length} ${state.decks.length === 1 ? "deck" : "decks"}</span></div><div class="panel-body">${
+    `<div class="title-row"><div><div class="eyebrow">Your collection of ideas</div><h1>Deck library</h1><p>Build something worth bringing to the table.</p></div><div class="toolbar"><button class="button" data-action="import">Import deck</button><button class="button primary" data-action="new">＋ New deck</button></div></div><div class="hero"><div><div class="eyebrow">The command zone awaits</div><h2>Every great game starts here.</h2><p>Explore the card catalogue, make a deck your own, and take it into a real game with hosted Forge.</p></div><button class="button" data-action="stocks">Explore starter decks →</button></div><div class="panel"><div class="panel-head"><h2>Your decks</h2><span class="subtle">${state.decks.length} ${state.decks.length === 1 ? "deck" : "decks"}</span></div><div class="panel-body">${
       state.decks.length
         ? `<div class="deck-grid">${state.decks
             .map(
@@ -280,7 +280,8 @@ function resultView(s) {
 }
 function matchView(s) {
   const interactive = s.status === "playing" && !s.result;
-  const seat = state.session.seat ?? 0;
+  const viewerIndex = s.players?.findIndex((player) => player.id === s.viewerPlayerId) ?? -1;
+  const seat = viewerIndex >= 0 ? viewerIndex : state.session.seat ?? 0;
   const players = (s.players || []).map((player, index) => ({ player, index })).sort((a, b) => (b.index === seat) - (a.index === seat));
   return `<div class="panel" style="margin-top:22px"><div class="panel-head"><div><div class="eyebrow">${esc(s.status)} · Turn ${esc(s.turn ?? "—")}</div><h2>${esc(s.phase || "Waiting for game")}</h2></div><span class="subtle">${esc(s.error || "")}</span></div><div class="panel-body">${resultView(s)}${interactive && s.prompt ? promptView(s.prompt) : ""}<div class="split">${players.map(({ player: p, index: i }) => `<section><div class="game-header"><h2 class="section-title">${interactive ? `<button class="card-name" data-player="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name)} <span class="subtle">${i === seat ? "Your seat" : "Opponent"}</span></h2><div class="life">${esc(p.life)} <small>life</small></div></div><p class="subtle">Hand ${esc(p.handCount)} · Library ${esc(p.libraryCount)}</p>${i === seat && p.hand ? zone("Your hand", p.hand, interactive) : ""}${zone("Battlefield", p.battlefield, interactive)}${zone("Command", p.command, interactive)}${zone("Graveyard", p.graveyard, interactive)}${zone("Exile", p.exile, interactive)}</section>`).join("")}</div>${zone(
     "Stack",

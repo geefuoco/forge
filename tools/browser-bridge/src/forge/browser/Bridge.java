@@ -313,6 +313,7 @@ public final class Bridge {
         PumpGui gui;
         long revision;
         boolean inFlight;
+        boolean priorityActive;
         SeatView(JsonObject request, MatchSession owner, int seatNumber) {
             this.request = request; this.owner = owner; this.seatNumber = seatNumber;
             this.id = owner == null ? UUID.randomUUID().toString() : owner.id;
@@ -346,6 +347,7 @@ public final class Bridge {
             }
             if (actionRevision == null || actionRevision != revision) return "Stale revision";
             if (promptId == null || !promptId.equals(string(action, "promptId"))) return "Stale prompt";
+            if ("priority".equals(promptKind) && !priorityActive) return "Stale prompt";
             if (inFlight) return "An action is already in flight";
             if (promptKind.equals("input") || promptKind.equals("manipulate")) {
                 try {
@@ -455,7 +457,7 @@ public final class Bridge {
             }
             out.put("status", status);
             if (result != null) out.put("result", result);
-            if (prompt != null) out.put("prompt", prompt);
+            if (prompt != null && (!"priority".equals(promptKind) || priorityActive)) out.put("prompt", prompt);
             snapshot = JSON.toJson(out);
         }
         String pid(PlayerView p) { return String.valueOf(p.getId()); }
@@ -489,10 +491,6 @@ public final class Bridge {
                     case showPromptMessage -> { message = String.valueOf(a[1]); if (prompt != null && "priority".equals(promptKind)) prompt.put("message", message); }
                     case updateButtons -> {
                         if (human != null && human.equals(a[0])) {
-                            if (!(boolean)a[3] && !(boolean)a[4]) {
-                                if ("priority".equals(promptKind)) { prompt = null; promptId = null; promptKind = null; }
-                                break;
-                            }
                             newPrompt("priority", message);
                             prompt.put("buttons", List.of(map("id", "ok", "label", a[1], "enabled", a[3]), map("id", "cancel", "label", a[2], "enabled", a[4])));
                         }
@@ -657,6 +655,7 @@ public final class Bridge {
             return null;
         }
         void pump(CountDownLatch done) {
+            synchronized (this) { priorityActive = true; publish(); }
             try {
                 while (done.getCount() > 0) {
                     JsonObject action = nextCommand(done);
@@ -678,6 +677,13 @@ public final class Bridge {
                 }
             } catch (CancellationException e) { throw e; }
             catch (Throwable t) { fail(t); throw new IllegalStateException(t); }
+            finally {
+                synchronized (this) {
+                    priorityActive = false;
+                    if ("priority".equals(promptKind)) { prompt = null; promptId = null; }
+                    publish();
+                }
+            }
         }
     }
     static final class PumpGui extends ProtocolGuiGame {

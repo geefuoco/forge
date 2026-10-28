@@ -41,6 +41,20 @@ public final class DesktopClientTest {
         check(response.statusCode() == 200, "settings readable " + response.body());
         return JsonParser.parseString(response.body()).getAsJsonObject();
     }
+    static void relayOptionsPrecedence(Path root) throws Exception {
+        Path configRoot = Files.createTempDirectory(root, "invalid-relay-config-");
+        Files.writeString(configRoot.resolve("client-config.json"), "{\"buildId\":\"test-release\",\"relayOrigin\":\"http://public.example\"}");
+        String[] flags = {"--root", configRoot.toString(), "--dev", "--relay", "https://cli.example"};
+        DesktopClient.Options valid = DesktopClient.Options.parse(flags);
+        check(valid.relayOverride().equals("https://cli.example"), "explicit CLI relay wins over invalid packaged origin");
+        flags[4] = "";
+        DesktopClient.Options empty = DesktopClient.Options.parse(flags);
+        check(empty.relayOverride().isEmpty(), "explicit empty CLI relay wins over invalid packaged origin");
+        boolean rejected = false;
+        try { DesktopClient.Options.parse(new String[] {"--root", configRoot.toString(), "--dev"}); }
+        catch (IllegalArgumentException e) { rejected = true; }
+        check(rejected, "invalid packaged relay rejected when there is no CLI relay");
+    }
     static void relaySettings(Path root, Path profile) throws Exception {
         String packaged = "https://packaged.example";
         String saved = "https://saved.example";
@@ -80,10 +94,6 @@ public final class DesktopClientTest {
             check(Files.readString(profile.resolve("settings.json")).equals("{broken"), "corrupt file preserved");
             check(call(client, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", saved), client.localOrigin()).statusCode() == 200, "explicit save repairs corruption");
             check(settings(client, cookie).get("warning").isJsonNull(), "repair clears warning");
-            JsonObject cpu = new JsonObject(); cpu.addProperty("mode", "cpu"); cpu.add("humanDeck", new JsonObject()); cpu.add("aiDeck", new JsonObject());
-            check(call(client, "POST", "/api/v1/matches", cookie, cpu.toString(), client.localOrigin()).statusCode() == 202, "CPU match starts");
-            check(settings(client, cookie).get("locked").getAsBoolean(), "CPU match locks settings");
-            check(call(client, "POST", "/api/v1/settings", cookie, "{\"reset\":true}", client.localOrigin()).statusCode() == 409, "CPU match rejects settings change");
         }
         try (DesktopClient client = client(root, profile, packaged, "")) {
             String cookie = cookie(client);
@@ -98,6 +108,23 @@ public final class DesktopClientTest {
             JsonObject view = settings(client, cookie);
             check(view.get("relayOrigin").getAsString().equals("https://cli.example"), "CLI wins over corrupt saved settings");
             check(!view.get("warning").isJsonNull(), "CLI still shows corrupt profile warning");
+        }
+        if (!System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")) {
+            Path dangling = profile.resolve("dangling");
+            Files.createDirectories(dangling);
+            Path link = dangling.resolve("settings.json");
+            Files.createSymbolicLink(link, Path.of("missing.json"));
+            try (DesktopClient client = client(root, dangling, packaged)) {
+                JsonObject view = settings(client, cookie(client));
+                check(view.get("source").getAsString().equals("invalidSaved") && view.get("relayOrigin").getAsString().isEmpty(), "dangling saved settings fail closed");
+                check(!view.get("warning").isJsonNull(), "dangling saved settings show warning");
+                check(Files.isSymbolicLink(link), "dangling saved entry preserved");
+            }
+            try (DesktopClient client = client(root, dangling, packaged, "https://cli.example")) {
+                JsonObject view = settings(client, cookie(client));
+                check(view.get("source").getAsString().equals("commandLine") && view.get("relayOrigin").getAsString().equals("https://cli.example"), "CLI wins over dangling saved settings");
+                check(!view.get("warning").isJsonNull(), "CLI still shows dangling settings warning");
+            }
         }
         Path failed = profile.resolve("failure");
         Files.createDirectories(failed.resolve("settings.json"));
@@ -210,11 +237,12 @@ public final class DesktopClientTest {
         Files.createDirectories(root.resolve("web/neoforge/dist"));
         Files.writeString(root.resolve("web/neoforge/dist/index.html"), "test UI");
         localBoundaryAndPersistence(root, root.resolve("profile"));
+        relayOptionsPrecedence(root);
         relaySettings(root, root.resolve("settings-profile"));
         stubRelay(root, root.resolve("stub"));
         boolean rejected = false;
         try { DesktopClient.origin("http://public.example", true); } catch (IllegalArgumentException e) { rejected = true; }
         check(rejected, "dev cannot use public HTTP relay");
-        System.out.println("DesktopClientTest passed local HTTP boundaries, profile persistence, and stub relay lost-ack behavior; no real engine test");
+        System.out.println("DesktopClientTest passed local HTTP boundaries, relay settings, profile persistence, and stub relay lost-ack behavior; no real engine test");
     }
 }

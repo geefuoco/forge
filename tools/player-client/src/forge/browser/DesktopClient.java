@@ -47,7 +47,7 @@ public final class DesktopClient implements AutoCloseable {
             String relayOverride = flags.get("--relay");
             String build = flags.getOrDefault("--build-id", config.has("buildId") ? config.get("buildId").getAsString() : "");
             if (build.isBlank() || build.length() > 128) throw new IllegalArgumentException("A release buildId is required in client-config.json or --build-id");
-            if (!relay.isEmpty()) relay = origin(relay, dev);
+            if (relayOverride == null && !relay.isEmpty()) relay = origin(relay, dev);
             if (relayOverride != null && !relayOverride.isEmpty()) relayOverride = origin(relayOverride, dev);
             Path profile = Path.of(flags.getOrDefault("--profile", Path.of(System.getProperty("user.home"), ".neoforge", "player-client").toString())).toAbsolutePath();
             return new Options(root, profile, relay, build, dev, open, relayOverride);
@@ -91,7 +91,7 @@ public final class DesktopClient implements AutoCloseable {
     RelaySettings loadRelaySettings() {
         RelaySettings fallback = fallbackSettings();
         Path file = options.profile.resolve("settings.json");
-        if (!Files.exists(file)) return fallback;
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return fallback;
         try {
             if (Files.size(file) > 8192) throw new IllegalArgumentException("Saved relay settings exceed the size limit");
             JsonElement parsed = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8));

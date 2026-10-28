@@ -765,3 +765,24 @@ dialog::backdrop {
     padding: 16px;
   }
 }
+
+.game-result {
+  margin-bottom: 24px;
+  padding: 22px;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.game-result ul {
+  padding: 0;
+  list-style: none;
+}
+.game-result li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+}
+.game-result li span {
+  color: var(--muted);
+}

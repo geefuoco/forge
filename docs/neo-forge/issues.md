@@ -22,10 +22,12 @@ Successful builds, unit tests, and completed CPU games do not establish strong c
 
 ## Null action revision returns a server error
 
-Status: open, inherited companion request-validation defect.
+Status: fixed in the companion action-revision change.
 
-An authenticated `POST /api/v1/action` with a live match and prompt but `"revision": null` returns HTTP 500 instead of a client validation error. The decision remains pending, its command queue stays empty, and a subsequent valid answer succeeds. Normal browser submissions send numeric revisions.
+Before the fix, an authenticated `POST /api/v1/action` with a live match and prompt but `"revision": null` returned HTTP 500 instead of a client validation error. The decision remained pending, its command queue stayed empty, and a subsequent valid answer succeeded. Normal browser submissions send numeric revisions.
 
-Independent HTTP probes reproduced the same result with the exact bridge source from base `189fbcc83f81f149c7ef10b401a8e0aef46020f4` and feature `7e50ab041bd68ffb58de3308c5d9502454c02d5d`. `MatchSession.submit` calls `getAsLong()` before checking the revision's JSON type. Gson throws `UnsupportedOperationException` for JSON null, which reaches the generic HTTP 500 handler.
+Independent HTTP probes reproduced the same result with the exact bridge source from base `189fbcc83f81f149c7ef10b401a8e0aef46020f4` and feature `7e50ab041bd68ffb58de3308c5d9502454c02d5d`. The old `MatchSession.submit` called `getAsLong()` before checking the revision's JSON type. Gson threw `UnsupportedOperationException` for JSON null, which reached the generic HTTP 500 handler.
 
-Validate the revision's type and integer range before reading it. Add HTTP regression cases for null and malformed revisions that assert a client error, a pending usable decision, and successful retry. GitHub Issues is disabled for this fork, so this entry tracks the follow-up.
+`MatchSession.submit` now validates an optional whole signed-long revision before either normal actions or concession can enqueue a command. Explicit null, non-numeric JSON values, fractions, and values outside the long range return a client error. Normal actions still require the current revision. Concession still permits an omitted revision.
+
+`RevisionTest` exercises the real HTTP server and a pending `ProtocolGuiGame` confirmation. It checks malformed revisions on normal and concession actions, unchanged pending decisions, valid retry, duplicate rejection, and concession without a revision. The regression failed before the fix with `Expected client error for null revision on ok, got HTTP 500`.

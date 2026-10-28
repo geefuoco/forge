@@ -42,8 +42,9 @@ With Python Playwright and Chromium at `/usr/bin/chromium`, run the prompt edito
 ```sh
 python3 tools/verify-allocations.py
 python3 tools/verify-inputs.py
+python3 tools/verify-completion.py
 ```
 
-The input checks cover exact text, listed options, cancellation, caret and IME retention during polling, stale recovery, legal card moves, reset, keyboard controls, hidden labels, and narrow layouts. These mock browser checks do not establish a complete game or a connection from the published Site to your PC.
+The input checks cover exact text, listed options, cancellation, caret and IME retention during polling, stale recovery, legal card moves, reset, keyboard controls, hidden labels, and narrow layouts. The completion checks cover informational reveal acknowledgement, safe win, loss, draw and concession labels, unavailable results, error states, and inactive completed boards. These mock browser checks do not establish a complete game or a connection from the published Site to your PC.
 
 Magic: The Gathering is a trademark of Wizards of the Coast. This fan project is not affiliated with Wizards of the Coast.

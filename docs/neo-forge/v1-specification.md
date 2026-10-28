@@ -86,4 +86,6 @@ Use exactly two independent initial verifier agents for pstack swarm verificatio
 
 ## Current state
 
-Requirements discovery and source inspection are complete enough for this draft. There is no upstream fork or product implementation yet. No Site has been created, no deployment has run, and there are no runtime, AI-quality, save/restore, network, or performance results. The remaining defaults and exact release criteria still need review before product implementation.
+The user fork and private Site now contain a Commander deck workspace and browser client backed by a local Forge companion. Real protocol, browser-to-Java HTTP, private-zone, allocation, text, and card-order checks have passed. A natural-game probe exposed an informational reveal blocker, which now has a dedicated acknowledgement flow. The current source also projects authoritative completion results and validates malformed action revisions. See the tracked browser status for exact verification limits.
+
+Full natural-game completion, remote invites, durable save and restore, replay, the AI-quality verdict, measured rendering performance, and native Windows startup remain unverified. This draft remains the first-release target rather than a claim that those milestones are complete.

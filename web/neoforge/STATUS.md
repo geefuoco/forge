@@ -8,6 +8,7 @@ The private Site project is `appgprj_6adfc16750848191bc9c8772a2008c1b`, slug `ne
 - 34,129 unique first-face card names from the pinned Forge scripts. Both World Shaper and Multiverse Reforged stock lists resolve to 100 cards.
 - Authenticated loopback companion, authoritative Forge Commander deck validation, real game setup, priority, card and player actions, confirmations, list choices, ordering, and concession.
 - Browser-controlled combat damage and generic amounts, with companion validation of totals, target limits, blocker order, trample, deathtouch, planeswalker loyalty, and explicit deferral when allowed.
+- Informational card reveals with explicit acknowledgement, plus authoritative result summaries and inactive completed boards.
 - Text input, listed options, and complete card-list ordering. The companion preserves exact strings and original card objects, validates allowed moves, and conceals hidden card names. Browser controls retain edits during polling and stale-revision recovery.
 - Explicit viewer snapshots omit the CPU hand and library contents. The launcher uses a separate persistent profile and pairing tokens remain in page memory.
 - The Help dialog provides a companion source download and an origin-specific launch command. Extract it into a built Forge checkout.
@@ -28,7 +29,9 @@ The text and card-list protocol checks pass through real `ProtocolGuiGame` calls
 
 Independent verification also paired Chromium with the real Java companion over HTTP and submitted text, empty text, cancellation, listed options, and a complete card order. Java assertions checked the exact returned values and original card references. Keyboard controls, narrow layouts, and newer prompts surviving delayed responses passed. A separate engine reviewer passed real HTTP boundary checks and stock-precon match smoke tests in both seat orders. Those matches exercised land play, blocking choices, private zones, stale actions, and concession. They were intentionally conceded, so natural game completion remains unverified. The checks used existing built Forge classes with freshly compiled bridge source. They do not establish a clean full-engine rebuild or native Windows startup.
 
-Review reproduced an inherited malformed-action issue at both the base and feature revisions. A JSON-null action revision returns HTTP 500 while leaving the decision usable. The follow-up is recorded in `docs/neo-forge/issues.md` in the Forge repository.
+The inherited malformed-revision issue is fixed. The companion validates numeric JSON type and exact whole-long range before enqueueing normal or concession actions. Actual HTTP regression checks cover malformed values, pending-state preservation, stale revisions, and valid retry. The history is recorded in `docs/neo-forge/issues.md` in the Forge repository.
+
+A real browser-driven stock match exposed a turn-13 transformed-card reveal that could not be acknowledged. Forge uses `getChoices(-1,-1)` for that informational list. The companion now presents a dedicated reveal prompt with safe labels and explicit **Continue** acknowledgement. Protocol and Chromium checks verify that it cannot select cards or advance automatically. Result fixtures project complete engine outcomes, including eliminated participants, and suppress completed action controls. A separate real-engine concession check confirms that the authoritative concession result remains stable after cleanup. Natural-game verification of this updated version is still pending.
 
 ## Remaining work
 

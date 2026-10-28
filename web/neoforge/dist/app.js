@@ -241,7 +241,7 @@ function entryRows(entries) {
 function play() {
   let s = state.snapshot;
   shell(
-    `<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>A real game powered by Forge running on your PC.</p></div>${state.connected && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${!state.connected ? `<div class="hero"><div><div class="eyebrow">Your engine, your machine</div><h2>Connect to take a seat.</h2><p>Start the NeoForge companion on your PC, then pair this browser to play against Forge's CPU.</p></div><button class="button primary" data-action="connect">Connect PC</button></div>` : ["playing", "starting"].includes(s?.status) ? "" : `<div class="panel"><div class="panel-head"><h2>Start a match</h2><span class="subtle">Connected to Forge</span></div><div class="panel-body"><div class="split"><div class="field"><label for="human-deck">YOUR DECK</label><select id="human-deck">${deckOptions()}</select></div><div class="field"><label for="ai-deck">CPU DECK</label><select id="ai-deck">${deckOptions()}</select></div></div><button class="button primary" data-action="start" ${state.decks.length && !["playing", "starting"].includes(s?.status) ? "" : "disabled"}>Start real game</button> <span class="subtle">Forge validates both decks before play.</span></div></div>`}${s ? matchView(s) : ""}`,
+    `<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>A real game powered by Forge running on your PC.</p></div>${state.connected && !s?.result && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${!state.connected ? `<div class="hero"><div><div class="eyebrow">Your engine, your machine</div><h2>Connect to take a seat.</h2><p>Start the NeoForge companion on your PC, then pair this browser to play against Forge's CPU.</p></div><button class="button primary" data-action="connect">Connect PC</button></div>` : ["playing", "starting"].includes(s?.status) ? "" : `<div class="panel"><div class="panel-head"><h2>Start a match</h2><span class="subtle">Connected to Forge</span></div><div class="panel-body"><div class="split"><div class="field"><label for="human-deck">YOUR DECK</label><select id="human-deck">${deckOptions()}</select></div><div class="field"><label for="ai-deck">CPU DECK</label><select id="ai-deck">${deckOptions()}</select></div></div><button class="button primary" data-action="start" ${state.decks.length && !["playing", "starting"].includes(s?.status) ? "" : "disabled"}>Start real game</button> <span class="subtle">Forge validates both decks before play.</span></div></div>`}${s ? matchView(s) : ""}`,
   );
 }
 function deckOptions() {
@@ -252,16 +252,33 @@ function deckOptions() {
     )
     .join("");
 }
+function resultView(s) {
+  if (s.status !== "finished") return "";
+  const result = s.result;
+  if (!result) return '<section class="game-result" role="status"><h2>Game finished</h2><p>Result unavailable.</p></section>';
+  const local = result.participants.find((participant) => participant.name === "You");
+  const heading = result.kind === "draw" ? "Draw" : local?.outcome === "won" ? "You won"
+    : local?.lossReason === "Conceded" ? "You conceded" : local?.outcome === "lost" ? "You lost" : "Game finished";
+  const reasons = {
+    Conceded: "Conceded", LifeReachedZero: "Life reached zero", Milled: "Drew from an empty library",
+    Poisoned: "Poison counters", CommanderDamage: "Commander damage", SpellEffect: "Card effect",
+    OpponentWon: "Opponent won", IntentionalDraw: "Agreed draw",
+  };
+  const outcomes = { won: "Won", lost: "Lost", draw: "Draw" };
+  return `<section class="game-result" role="status"><div class="eyebrow">Game complete · ${esc(result.turns)} turns</div><h2>${heading}</h2><ul>${result.participants.map((participant) => `<li><strong>${esc(participant.name)}</strong><span>${outcomes[participant.outcome] || "Game ended"}${participant.lossReason ? " · " + (reasons[participant.lossReason] || "Game ended") : ""}</span></li>`).join("")}</ul></section>`;
+}
 function matchView(s) {
-  return `<div class="panel" style="margin-top:22px"><div class="panel-head"><div><div class="eyebrow">${esc(s.status)} · Turn ${esc(s.turn ?? "—")}</div><h2>${esc(s.phase || "Waiting for game")}</h2></div><span class="subtle">${esc(s.error || "")}</span></div><div class="panel-body">${s.prompt ? promptView(s.prompt) : ""}<div class="split">${(s.players || []).map((p, i) => `<section><div class="game-header"><h2 class="section-title"><button class="card-name" data-player="${esc(p.id)}">${esc(p.name)}</button> ${i === 0 ? "" : '<span class="subtle">CPU</span>'}</h2><div class="life">${esc(p.life)} <small>life</small></div></div><p class="subtle">Hand ${esc(p.handCount)} · Library ${esc(p.libraryCount)}</p>${p.hand ? zone("Hand", p.hand) : ""}${zone("Battlefield", p.battlefield)}${zone("Command", p.command)}${zone("Graveyard", p.graveyard)}${zone("Exile", p.exile)}</section>`).join("")}</div>${zone(
+  const interactive = s.status === "playing" && !s.result;
+  return `<div class="panel" style="margin-top:22px"><div class="panel-head"><div><div class="eyebrow">${esc(s.status)} · Turn ${esc(s.turn ?? "—")}</div><h2>${esc(s.phase || "Waiting for game")}</h2></div><span class="subtle">${esc(s.error || "")}</span></div><div class="panel-body">${resultView(s)}${interactive && s.prompt ? promptView(s.prompt) : ""}<div class="split">${(s.players || []).map((p, i) => `<section><div class="game-header"><h2 class="section-title">${interactive ? `<button class="card-name" data-player="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name)} ${i === 0 ? "" : '<span class="subtle">CPU</span>'}</h2><div class="life">${esc(p.life)} <small>life</small></div></div><p class="subtle">Hand ${esc(p.handCount)} · Library ${esc(p.libraryCount)}</p>${p.hand ? zone("Hand", p.hand, interactive) : ""}${zone("Battlefield", p.battlefield, interactive)}${zone("Command", p.command, interactive)}${zone("Graveyard", p.graveyard, interactive)}${zone("Exile", p.exile, interactive)}</section>`).join("")}</div>${zone(
     "Stack",
-    (s.stack || []).map((x) => ({ ...x, name: x.label })),
+    (s.stack || []).map((x) => ({ ...x, name: x.label })), interactive,
   )}${s.log?.length ? `<div class="section-label">Game log</div><p class="subtle">${s.log.slice(-8).map(esc).join("<br>")}</p>` : ""}</div></div>`;
 }
-function zone(name, list = []) {
-  return `<div class="zone"><h3>${name} · ${list.length}</h3><div class="zone-cards">${list.map((c) => `<button class="game-card" data-card="${esc(c.id)}">${esc(c.name)}<span>${esc([c.mana, c.type, c.pt, c.tapped ? "Tapped" : "", c.counters].filter(Boolean).join(" · "))}</span></button>`).join("") || '<span class="subtle">Empty</span>'}</div></div>`;
+function zone(name, list = [], interactive = true) {
+  return `<div class="zone"><h3>${name} · ${list.length}</h3><div class="zone-cards">${list.map((c) => `<${interactive ? `button class="game-card" data-card="${esc(c.id)}"` : 'div class="game-card"'}>${esc(c.name)}<span>${esc([c.mana, c.type, c.pt, c.tapped ? "Tapped" : "", c.counters].filter(Boolean).join(" · "))}</span></${interactive ? "button" : "div"}>`).join("") || '<span class="subtle">Empty</span>'}</div></div>`;
 }
 function promptView(p) {
+  if (p.kind === "reveal") return `<div class="prompt"><h3>${esc(p.message)}</h3><ul class="revealed-items">${p.items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul><button class="button primary" data-prompt-button="ok">Continue</button></div>`;
   if (p.kind === "allocation") return allocationView(p);
   if (p.kind === "input") return inputView(p);
   if (p.kind === "manipulate") return manipulationView(p);

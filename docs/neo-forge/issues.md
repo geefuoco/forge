@@ -57,3 +57,9 @@ The first packaged two-client probe opened the guest's Join dialog, but clicking
 Status: fixed after the first native workflow attempt.
 
 The Windows and Linux jobs stopped in setup before compilation because the pinned `actions/setup-java` revision did not exist. The workflow now pins the verified commit referenced by the upstream v5 tag. The first failed run is https://github.com/geefuoco/forge/actions/runs/40782022228. Native Windows still requires a completed build and launcher check.
+
+## Windows catalogue generation uses the system code page
+
+Status: fixed after native Windows CI reached catalogue generation.
+
+Forge compiled on Windows, but writing `cards.json` failed with a CP1252 `UnicodeEncodeError` for U+014D. The generator now reads precon lists as UTF-8 and writes all three JSON outputs as UTF-8. A subprocess regression with an ASCII default locale reproduces the failure before the fix and preserves a macron in both catalogue and precon data after the fix. The failed native run is https://github.com/geefuoco/forge/actions/runs/40782419954.

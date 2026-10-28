@@ -94,6 +94,17 @@ class RelayHTTPTest(unittest.TestCase):
         self.assertEqual(stored.host_digest, relay.digest(room['hostToken']))
         self.assertIsNone(stored.invite_digest)
 
+    def test_closed_rooms_release_capacity_and_keep_bounded_tombstones(self):
+        self.registry.max_rooms = 2
+        for _ in range(6):
+            room = self.create()
+            base = self.base
+            self.assertEqual(self.request('POST', base + '/close', {}, room['hostToken'])[0], 200)
+            self.assertEqual(self.request('GET', base + '/snapshot', token='revoked')[0], 410)
+            self.assertEqual(len(self.registry.rooms), 0)
+        self.assertEqual(len(self.registry.closed_rooms), 4)
+        self.assertEqual(self.request('POST', '/relay/v1/rooms', {'protocolVersion': 1, 'buildId': 'test-release'})[0], 201)
+
     def test_pending_survives_timeout_and_repeated_delivery_ack_and_retry(self):
         self.create()
         self.join()

@@ -39,3 +39,15 @@ Status: fixed in the hosted input lifecycle change.
 A local real-engine browser probe stopped on turn 3 during cleanup. The game thread was waiting in `chooseCardsToDiscardToMaximumHandSize`, but the browser snapshot had no prompt. The hosted adapter had treated two disabled buttons as an inactive controller. Forge disables both buttons while the player must first select a card.
 
 The adapter now derives active priority input from the engine's `awaitInput` pump. It exposes the pending card-selection prompt while that pump waits, even when both buttons are disabled. It hides priority input and rejects answers after that pump ends. `HostedTest` covers selection visibility, inactive action rejection, and prompt cleanup. The natural-game probe is rerun through the hosted gateway.
+
+## Closed relay rooms consume admission capacity
+
+Status: fixed in the installed-client verification correction.
+
+Independent verification created and closed two rooms with `max_rooms=2`, then observed zero active rooms and a 503 on the third creation. Retired rooms still occupied the live registry. Closing now removes the live record and retains only a bounded, credential-free tombstone. The new HTTP regression repeats creation and closure beyond the configured capacity and checks that another room is admitted.
+
+## Installed Join dialog does not submit
+
+Status: fixed in the installed-client verification correction.
+
+The first packaged two-client probe opened the guest's Join dialog, but clicking Join did nothing. The handler was attached to the main application element, while the dialog is its sibling. The submission handler now belongs to the dialog's event listener. The packaged real-relay probe checks the complete Host and Join flow.

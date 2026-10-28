@@ -84,10 +84,14 @@ class Registry:
         self.idle_seconds, self.lifetime_seconds = idle_seconds, lifetime_seconds
         self.invite_seconds = invite_seconds
         self.rooms = {}
+        self.closed_rooms = OrderedDict()
         self.creations = OrderedDict()
         self.condition = threading.Condition()
 
     def cleanup(self, now):
+        for key, closed in list(self.closed_rooms.items()):
+            if now - closed > self.idle_seconds:
+                del self.closed_rooms[key]
         for key, room in list(self.rooms.items()):
             if now - room.touched > self.idle_seconds or now - room.created > self.lifetime_seconds:
                 self.retire(room)
@@ -277,6 +281,8 @@ class Registry:
             room_id, endpoint = match.groups()
             room = self.rooms.get(room_id)
             if room is None:
+                if room_id in self.closed_rooms:
+                    raise Failure(410, 'Room closed')
                 raise Failure(404, 'Unknown room')
             if room.closed:
                 raise Failure(410, 'Room closed')
@@ -307,6 +313,10 @@ class Registry:
                 return self.host(room, data, now)
             if endpoint == 'close':
                 self.retire(room)
+                del self.rooms[room_id]
+                self.closed_rooms[room_id] = now
+                while len(self.closed_rooms) > self.max_rooms * 2:
+                    self.closed_rooms.popitem(last=False)
                 return 200, dict(schemaVersion=1, status='closed')
             if endpoint == 'snapshot':
                 self.online(room, now)

@@ -238,6 +238,7 @@ public final class DesktopClient implements AutoCloseable {
     }
     static Response submit(Bridge.SeatView seat, JsonObject action) {
         try {
+            if (!action.has("revision")) throw new IllegalArgumentException("Revision is required");
             String issue = seat.submit(action);
             return new Response(issue == null ? 202 : 409, JSON.toJson(issue == null ? Bridge.map("schemaVersion", 1, "accepted", true) : Bridge.error(issue)));
         } catch (IllegalArgumentException e) { return new Response(400, JSON.toJson(Bridge.error(e.getMessage()))); }

@@ -113,6 +113,10 @@ public final class DesktopClientTest {
         } finally { relay.stop(0); }
     }
     public static void main(String[] args) throws Exception {
+        Bridge.MatchSession pending = new Bridge.MatchSession(new JsonObject());
+        JsonObject unversioned = new JsonObject();
+        unversioned.addProperty("matchId", pending.id); unversioned.addProperty("kind", "concede");
+        check(DesktopClient.submit(pending, unversioned).status() == 400, "installed actions require a revision including concession");
         Path root = Files.createTempDirectory("desktop-client-test-");
         Files.createDirectories(root.resolve("web/neoforge/dist"));
         Files.writeString(root.resolve("web/neoforge/dist/index.html"), "test UI");

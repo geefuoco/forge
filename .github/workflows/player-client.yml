@@ -10,6 +10,13 @@ on:
   pull_request:
     paths:
       - 'tools/player-client/**'
+      - 'tools/player-relay/**'
+      - 'forge-core/**'
+      - 'forge-game/**'
+      - 'forge-ai/**'
+      - 'forge-gui/**'
+      - 'forge-gui-desktop/**'
+      - 'pom.xml'
       - 'tools/browser-bridge/**'
       - 'web/neoforge/**'
       - '.github/workflows/player-client.yml'

@@ -743,22 +743,6 @@ app.addEventListener("click", async (e) => {
   if (a === "join-friend" && desktopClient()) {
     openModal('<h2>Join a friend</h2><p>Paste the complete invitation from your friend. Both clients must use the same release.</p><div class="field"><label for="friend-invitation">INVITATION</label><input id="friend-invitation" type="text" autocomplete="off" spellcheck="false"></div><p id="join-error" role="status"></p><div class="modal-actions"><button class="button" data-action="close">Cancel</button><button class="button primary" data-action="join-desktop">Join game</button></div>');
   }
-  if (a === "join-desktop" && !state.busy) {
-    const errorField = document.querySelector("#join-error");
-    const inviteUrl = document.querySelector("#friend-invitation").value.trim();
-    if (!inviteUrl) { errorField.textContent = "Paste the complete invitation."; return; }
-    state.busy = true;
-    b.disabled = true;
-    try {
-      await api("join", { method: "POST", body: JSON.stringify({ inviteUrl }) });
-      closeModal();
-      state.view = "play";
-      await reconnect();
-    } catch (error) {
-      errorField.textContent = error.message;
-      b.disabled = false;
-    } finally { state.busy = false; }
-  }
   if (a === "reconnect") await reconnect();
   if (a === "invite" && !state.busy) {
     state.busy = true;
@@ -903,6 +887,22 @@ modal.addEventListener("click", async (e) => {
     toast(`${p.name} added to your library.`);
     render();
     return;
+  }
+  if (a === "join-desktop" && !state.busy) {
+    const errorField = document.querySelector("#join-error");
+    const inviteUrl = document.querySelector("#friend-invitation").value.trim();
+    if (!inviteUrl) { errorField.textContent = "Paste the complete invitation."; return; }
+    state.busy = true;
+    b.disabled = true;
+    try {
+      await api("join", { method: "POST", body: JSON.stringify({ inviteUrl }) });
+      closeModal();
+      state.view = "play";
+      await reconnect();
+    } catch (error) {
+      errorField.textContent = error.message;
+      b.disabled = false;
+    } finally { state.busy = false; }
   }
   if (a === "close") closeModal();
   if (a === "create") {

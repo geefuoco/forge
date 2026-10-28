@@ -28,7 +28,7 @@ Informational card reveals show a list and a **Continue** button. Acknowledge th
 
 When Forge finishes a game, the browser shows its authoritative win, loss, draw, or concession result. Completed boards remain visible without action controls. If an outcome is unavailable, the browser says so instead of guessing a draw.
 
-The companion validates each answer before passing the original target objects back to Forge. Invalid or stale submissions leave the decision pending. Hidden cards remain labelled **Face-down card**. Text and card-order edits survive polling and stale-revision recovery. Restart the companion from the updated source before using these dialogs. Sideboarding and GUI-base dialogs remain outside this milestone. A complete browser-driven game is not verified.
+The companion validates each answer before passing the original target objects back to Forge. Invalid or stale submissions leave the decision pending. Hidden cards remain labelled **Face-down card**. Text and card-order edits survive polling and stale-revision recovery. Restart the companion from the updated source before using these dialogs. Sideboarding and GUI-base dialogs remain outside this milestone. A passive browser-driven game using the two stock decks completed naturally on turn 29. Other deck interactions, native Windows startup, and the hosted Site reaching your PC remain separate checks.
 
 A secure browser may restrict requests from the hosted Site to a local HTTP service. The bridge responds to private-network preflights, but availability depends on the browser's local-network policy. Keep the token out of URLs and shared logs. This bridge is a work in progress; not every Forge decision type is supported yet.
 
@@ -41,3 +41,15 @@ python tools/browser-bridge/tests/run-prompts.py
 ```
 
 The checks call `ProtocolGuiGame` with allocation, text, card-list, and informational reveal decisions. They verify exact text and cancellation, original target identities, hidden labels, and rejection of malformed or stale answers. Card-order checks compare the validator with exhaustive desktop legal-move exploration for lists of up to six entries. Completion fixtures also cover real `GameOutcome` projections and terminal cleanup, including eliminated participants and concession reasons. These protocol fixtures do not prove a complete natural match.
+
+## Check natural completion
+
+With the same classpath and JDK, run the bounded Chromium game probe from the checkout root. Set `CHROMIUM_PATH` if Chromium is not on `PATH`. Install the Python Playwright package before running the probe.
+
+```sh
+python tools/browser-bridge/tests/natural-game.py --work /tmp/neoforge-natural-game
+```
+
+The probe imports the two stock decks through the website, pairs with the real companion, and uses browser controls throughout. Its passive human policy keeps the opening hand, plays one land per turn, accepts required decisions, and attacks when the available Alpha Strike control permits it. It does not attempt competitive play. It rejects concession, requires Forge's authoritative result, and checks the completed board for inactive controls and false action-failure messages. `--reverse-decks` swaps the stock decks between seats. The output directory contains the tested revision, browser actions, engine snapshots, terminal screenshot, and result. The default limit is eight minutes.
+
+A final click can arrive after Forge has finished. The browser refreshes that match after a terminal refusal and shows the authoritative state without asking you to retry a completed action. If the refresh fails, the browser reports that failure.

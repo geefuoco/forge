@@ -51,3 +51,9 @@ Independent verification created and closed two rooms with `max_rooms=2`, then o
 Status: fixed in the installed-client verification correction.
 
 The first packaged two-client probe opened the guest's Join dialog, but clicking Join did nothing. The handler was attached to the main application element, while the dialog is its sibling. The submission handler now belongs to the dialog's event listener. The packaged real-relay probe checks the complete Host and Join flow.
+
+## Native client CI cannot resolve Java setup action
+
+Status: fixed after the first native workflow attempt.
+
+The Windows and Linux jobs stopped in setup before compilation because the pinned `actions/setup-java` revision did not exist. The workflow now pins the verified commit referenced by the upstream v5 tag. The first failed run is https://github.com/geefuoco/forge/actions/runs/40782022228. Native Windows still requires a completed build and launcher check.

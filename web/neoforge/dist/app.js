@@ -478,14 +478,22 @@ async function action(kind, extra = {}) {
     render();
   } catch (e) {
     if (!ownsPrompt()) return;
-    if (/stale (revision|prompt)/i.test(e.message)) {
+    const stale = /stale (revision|prompt)/i.test(e.message);
+    if (stale || e.message === "Match is over") {
       try {
         const next = await api("match");
         if (!ownsPrompt()) return;
+        if (next.matchId !== s.matchId) {
+          toast(`Action failed: ${e.message}`);
+          return;
+        }
         acceptSnapshot(next);
         render();
-      } catch {}
-      toast("The game moved on. Review the current prompt and try again.");
+        if (["finished", "error"].includes(state.snapshot.status)) return;
+        toast(stale ? "The game moved on. Review the current prompt and try again." : `Action failed: ${e.message}`);
+      } catch (refreshError) {
+        if (ownsPrompt()) toast(`Could not refresh game: ${refreshError.message}`);
+      }
     } else toast(`Action failed: ${e.message}`);
   } finally {
     state.busy = false;

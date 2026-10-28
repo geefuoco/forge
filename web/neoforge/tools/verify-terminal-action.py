@@ -91,7 +91,10 @@ async def check(browser, name, error="Match is over", refresh=None, poll=None, t
         await asyncio.wait_for(post_started.wait(), 3)
         if timing == "before-post":
             release_poll.set()
-            await expect(page.locator(".prompt")).to_contain_text("New decision")
+            if poll["status"] in ("finished", "error"):
+                await expect(page.locator(".eyebrow", has_text="finished")).to_be_visible()
+            else:
+                await expect(page.locator(".prompt")).to_contain_text("New decision")
             release_post.set()
         elif timing == "during-refresh":
             await asyncio.wait_for(recovery_started.wait(), 3)
@@ -106,7 +109,7 @@ async def check(browser, name, error="Match is over", refresh=None, poll=None, t
             await expect(page.locator(".prompt")).to_have_count(0)
             await expect(page.locator('[data-action="concede"]')).to_have_count(0)
         elif expected == "error-terminal":
-            await expect(page.locator(".panel-head")).to_contain_text("Engine stopped")
+            await expect(page.locator(".panel-head").last).to_contain_text("Engine stopped")
         elif expected == "active":
             await expect(page.locator(".prompt")).to_contain_text("Original decision")
             await expect(page.locator(".flash")).to_contain_text("Action failed: Match is over")
@@ -148,9 +151,12 @@ async def main():
             newer = snapshot("playing", prompt={**initial["prompt"], "id": "new-prompt", "message": "New decision"})
             other = {**newer, "matchId": "new-match"}
             await check(browser, "newer prompt before POST rejection", poll=newer, timing="before-post", expected="newer")
+            await check(browser, "newer match before POST rejection", poll=other, timing="before-post", expected="newer")
             await check(browser, "newer prompt during refresh", poll=newer, timing="during-refresh", expected="newer")
             await check(browser, "newer match during refresh", poll=other, timing="during-refresh", expected="newer")
             await check(browser, "refresh failure cannot toast over newer prompt", refresh="fail", poll=newer, timing="during-refresh", expected="newer")
+            terminal_with_prompt = {**snapshot(), "prompt": initial["prompt"]}
+            await check(browser, "terminal poll with retained prompt keeps refresh failure visible", refresh="fail", poll=terminal_with_prompt, timing="during-refresh", expected="refresh-failure")
         finally:
             await browser.close()
 

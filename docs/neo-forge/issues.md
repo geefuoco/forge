@@ -63,3 +63,9 @@ The Windows and Linux jobs stopped in setup before compilation because the pinne
 Status: fixed after native Windows CI reached catalogue generation.
 
 Forge compiled on Windows, but writing `cards.json` failed with a CP1252 `UnicodeEncodeError` for U+014D. The generator now reads precon lists as UTF-8 and writes all three JSON outputs as UTF-8. A subprocess regression with an ASCII default locale reproduces the failure before the fix and preserves a macron in both catalogue and precon data after the fix. The failed native run is https://github.com/geefuoco/forge/actions/runs/40782419954.
+
+## Relay container inherits unreadable source permissions
+
+Status: fixed and checked in the actual non-root container.
+
+A local image built from the managed checkout could not open `server.py` because the source file had mode 0600 and Docker preserved it. The non-root image user could not read the root-owned file. `COPY --chmod=0444` now gives the runtime a deterministic read-only script. The rebuilt container passed health, room creation, guest join, role refusal, and close revocation under the documented resource limits without Java installed.

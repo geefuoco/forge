@@ -1,0 +1,24 @@
+{
+  "sourceRevision": "e90c42b8cb8ac06d32ac5b96046d857e61c01c5f",
+  "workflowRun": "https://github.com/geefuoco/forge/actions/runs/40783592421",
+  "conclusion": "success",
+  "platforms": {
+    "Windows": {
+      "artifactId": 12859130029,
+      "nativeLauncher": "passed",
+      "realEngine": "passed",
+      "completion": "authoritative concession"
+    },
+    "Linux": {
+      "artifactId": 12857043859,
+      "nativeLauncher": "passed",
+      "realEngine": "passed",
+      "completion": "authoritative concession"
+    }
+  },
+  "limits": [
+    "The native probe uses a local CPU game, not a remote human game.",
+    "Public relay deployment and separate-network play remain unverified.",
+    "The host must remain running; save restoration is not implemented."
+  ]
+}

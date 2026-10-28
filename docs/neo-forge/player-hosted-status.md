@@ -14,10 +14,12 @@ The relay HTTP suite passes ten tests. The Java client socket checks pass for lo
 
 Exactly two initial independent verifiers covered engine and relay boundaries, then browser and packaging behavior. They found a Join dialog event-routing defect and a closed-room capacity leak. Both corrections passed an independent fix-forward round with two reviewers. A separate loopback probe confirmed that closing a room wakes a pending guest action with HTTP 410, releases capacity, and revokes its credentials. The installed-browser reviewer confirmed the corrected dialog forwards exactly one native relay request and displays a relay rejection without losing the form.
 
-The final CI adjustment checks out the exact source head on both platforms so their release identifiers match. The workflow runs on relay, engine, resource, dependency, license, interface, and packaging changes. Native Windows execution must be credited from an actual Windows run, never from the workflow definition alone.
+The final CI adjustment checks out the exact source head on both platforms so their release identifiers match. The workflow runs on relay, engine, resource, dependency, license, interface, and packaging changes. The [native build record](verification/native-client-build.json) credits an actual successful Windows and Linux run at `e90c42b8cb8ac06d32ac5b96046d857e61c01c5f`. Both packages launched with no external runtime tools, started their bundled Forge engine at Commander life, preserved opponent-hand privacy, and completed an authoritative concession. The [workflow artifacts](https://github.com/geefuoco/forge/actions/runs/40783592421) contain both client archives.
 
 ## Remaining release gates
 
-A public HTTPS relay, a genuinely separate-network game, and native Windows launch remain required before offering the online product as ready. The current Linux bundle supports local CPU play; online hosting requires a configured relay. Windows and Linux clients must use the same release identifier.
+A public HTTPS relay and a genuinely separate-network game remain required before offering the online product as ready. Native Windows and Linux launcher and engine checks have passed. The current Linux bundle supports local CPU play; online hosting requires a configured relay. Windows and Linux clients must use the same release identifier.
 
 Host exit and relay restart end the live room. Durable saves, replay, host migration, broad natural-game coverage, AI quality, and measured rendering performance remain outside this implementation's verified claims. No paid hosting, code-signing certificate, or release publication was purchased or performed.
+
+The relay container also passed a local smoke check as a non-root user with a read-only filesystem, 256 MiB memory limit, and half a CPU. It created a room, admitted its guest, enforced role access, and revoked the room on close. Java was absent. This is a smoke configuration, not a measured capacity claim.

@@ -8,7 +8,13 @@ The packaged Linux build `f36843920bfcf35411e3fa72e4daef11d008d25d` launches fro
 
 The [combined real-engine report](verification/player-relay-linux.json) records two installed Linux clients against the actual Python relay and Forge. The host and guest joined through the interface, advanced to turn 3, and retained separate private views. A mismatched build could not consume the invitation. Browser reload reconnected the guest to the same engine match. A stale action was rejected. Guest concession produced the authoritative completed result in both clients. The run submitted 35 browser actions and recorded no browser or response errors. This is a conceded game, not a natural-game or competitive-AI result.
 
-The relay HTTP suite passes ten tests. The Java client socket checks pass for local origin boundaries, profile persistence across ports, and lost acknowledgement behavior using a stub relay. Four packaging tests pass for release identity, relay URL validation, manifest folding, and exact payload contents. Existing hosted browser and prompt regressions also pass.
+The relay HTTP suite passes ten tests. The Java client socket checks pass for local origin boundaries, profile persistence across ports, and lost acknowledgement behavior using a stub relay. Five packaging and catalogue tests pass for release identity, relay URL validation, manifest folding, exact payload contents, and Unicode catalogue output. Existing hosted browser and prompt regressions also pass.
+
+## Saved relay settings follow-up
+
+The [settings probe](verification/relay-settings-linux.json) records a clean Linux package at `7699c919d6bf10ed3cf9475d356a962880a50e46`. Both installed clients saved the relay through Client info. Invalid input retained its draft. The host retained the address after a full executable restart on a new local port. Saving succeeded while session requests were configured to fail. A waiting host could not change the address. Both clients then advanced a real Forge game, reconnected after browser reload, rejected a stale action, and received the authoritative concession result. The run submitted 35 browser actions with no recorded browser or response errors.
+
+The same package passed native launcher, settings save/reset/clear, CPU-game settings lock, and real-engine concession checks without external runtime tools on PATH. The native socket suite passed launch override precedence, malformed saved-file recovery, broken saved-file links, persistence failures, and host and guest settings locks. Existing hosted browser regressions passed. Two independent initial reviewers found configuration-precedence, broken-file-link, and save-result presentation defects. Both correction reviews passed after the fixes. This follow-up's Windows settings checks are defined in the native workflow but have not yet been observed in Windows CI.
 
 ## Independent verification
 

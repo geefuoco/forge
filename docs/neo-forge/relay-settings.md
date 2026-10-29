@@ -45,3 +45,9 @@ Saved input is bounded to 8 KiB. Addresses are bounded to 2,048 characters and m
 | Separate configuration object with saved and packaged state | Makes corruption and provenance explicit, but adds more stored state. | Retained its corrupt-file behavior. |
 
 Two independent design proposals and a cross-judge chose the small snapshot. Corrupt saved settings disable hosting rather than silently selecting a different service. Local CPU play and the deck library remain available.
+
+## Verification
+
+The [Linux package report](verification/relay-settings-linux.json) records saved settings, restart persistence, and a real relay game. The native smoke test exercises settings and a CPU game on each workflow platform. See [verification status](player-hosted-status.md) for observed results and remaining release gates.
+
+![Client info after saving a relay in the installed Linux application.](verification/relay-settings.png)

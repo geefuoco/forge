@@ -113,6 +113,7 @@ def run(image, work):
                 page.screenshot(path=str(work / 'real-game-board.png'), full_page=True)
                 checks.append('real board and hand fit the desktop viewport')
                 page.locator('[data-action="concede"]').click()
+                page.locator('[data-action="confirm-concede"]').click()
                 expect(page.get_by_role('heading', name='You conceded', exact=True)).to_be_visible(timeout=30000)
                 assert state['snapshot'].get('result'), 'No authoritative completion result'
                 expect(page.locator('[data-card], [data-player], [data-prompt-button], [data-action="concede"]')).to_have_count(0)

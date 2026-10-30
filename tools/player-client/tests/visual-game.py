@@ -4,13 +4,13 @@ import hashlib
 import importlib.util
 import json
 import os
+import platform
 from pathlib import Path
 import subprocess
 import time
 
 from playwright.sync_api import expect, sync_playwright
 
-ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location('installed_game', Path(__file__).with_name('installed-game.py'))
 installed = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(installed)
@@ -121,7 +121,7 @@ def run(image, work):
                 assert not state['errors'], state['errors']
                 state['closing'] = True
                 browser.close()
-            report = dict(status='passed', scope='Real packaged Linux/Windows client and Forge CPU game; artwork provider forced offline, no real image or natural-game claim.',
+            report = dict(status='passed', platform=platform.system(), scope='Real packaged client and Forge CPU game; artwork provider forced offline, no real image or natural-game claim.',
                           buildId=json.loads((payload / 'client-config.json').read_text())['buildId'],
                           checks=checks, browserActions=state['actions'], errors=state['errors'],
                           clientJarSha256=hashlib.sha256((payload / 'client.jar').read_bytes()).hexdigest())

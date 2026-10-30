@@ -461,12 +461,12 @@ function updateAllocationFeedback() {
   document.querySelector('#allocation-form button[type="submit"]').disabled = !!issue;
 }
 function tableScrollKey(node) {
-  return `${node.closest("[data-table-player]")?.dataset.tablePlayer || "table"}:${node.closest("[data-table-zone]")?.dataset.tableZone || ""}`;
+  return `${node.closest("[data-table-player]")?.dataset.tablePlayer || "table"}:${node.closest("[data-table-zone]")?.dataset.tableZone || ""}:${node.classList.contains("zone-cards") ? "cards" : "zone"}`;
 }
 function render() {
   const tableView = {
     details: new Map([...app.querySelectorAll("[data-table-details]")].map((node) => [node.dataset.tableDetails, node.open])),
-    scroll: new Map([...app.querySelectorAll(".game-table .zone-cards")].map((node) => [tableScrollKey(node), [node.scrollLeft, node.scrollTop]])),
+    scroll: new Map([...app.querySelectorAll(".game-table .zone, .game-table .zone-cards")].map((node) => [tableScrollKey(node), [node.scrollLeft, node.scrollTop]])),
   };
   const active = document.activeElement;
   const promptEditor = active?.closest("form.prompt");
@@ -489,7 +489,7 @@ function render() {
   for (const node of app.querySelectorAll("[data-table-details]")) {
     if (tableView.details.has(node.dataset.tableDetails)) node.open = tableView.details.get(node.dataset.tableDetails);
   }
-  for (const node of app.querySelectorAll(".game-table .zone-cards")) {
+  for (const node of app.querySelectorAll(".game-table .zone, .game-table .zone-cards")) {
     const position = tableView.scroll.get(tableScrollKey(node));
     if (position) [node.scrollLeft, node.scrollTop] = position;
   }

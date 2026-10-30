@@ -93,3 +93,9 @@ Four browser checks attempted to fill `#host-token` and submit the removed pairi
 Status: fixed in the visual table correction.
 
 The local `editor` variable in `render()` hid the deck builder's `editor()` function. The prompt-control variable is now `promptEditor`, so navigating into deck editing calls the intended renderer. This correction preserves the existing prompt focus and composition handling.
+
+## Polling resets scroll inside an open graveyard
+
+Status: corrected; final verification in progress.
+
+Independent browser review opened a 30-card graveyard, scrolled its `.zone` container to 150 pixels, advanced the snapshot revision, and observed a reset to zero. The renderer had preserved only the inner `.zone-cards` offsets. It now preserves both actual containers with distinct stable keys. The visual regression checks a long graveyard across polling as well as retaining the open pocket.

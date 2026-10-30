@@ -132,9 +132,15 @@ try:
         assert len(requests) == before, 'Polling repeated cached image lookups'
         page.locator('.local-field .zone-pocket').first.locator('summary').click()
         expect(page.locator('[data-visible-card="31"] [data-art-state="unavailable"]')).to_have_count(1, timeout=10000)
+        snapshot['players'][0]['graveyard'] += [card(200 + i, names[i % 7]) for i in range(29)]
+        snapshot['revision'] += 1
+        expect(page.locator('[data-table-details="you:graveyard"] .table-card')).to_have_count(30)
+        pocket = page.locator('[data-table-details="you:graveyard"] .zone')
+        pocket.evaluate('(node) => node.scrollTop = 150')
         snapshot['revision'] += 1
         page.wait_for_timeout(1300)
         assert page.locator('[data-table-details="you:graveyard"]').evaluate('(node) => node.open'), 'Polling closed the graveyard'
+        assert pocket.evaluate('(node) => node.scrollTop') >= 145, 'Polling reset the graveyard scroll position'
         expect(page.locator('[data-action="retry-art"]')).to_be_visible()
         page.locator('[data-action="retry-art"]').click()
         page.wait_for_timeout(500)
@@ -144,7 +150,7 @@ try:
         expect(page.locator('[data-visible-card="80"] img')).to_have_attribute('src', 'https://cards.scryfall.io/back.svg', timeout=12000)
         snapshot['players'][0]['battlefield'] += [card(100 + i, names[i % 7], tapped=i % 3 == 0) for i in range(22)]
         snapshot['revision'] += 1
-        expect(page.locator('.local-field .table-card')).to_have_count(28)
+        expect(page.locator('.local-field .battlefield-lanes .table-card')).to_have_count(26)
         crowded_hand = page.locator('.hand-zone').bounding_box()
         assert crowded_hand['y'] + crowded_hand['height'] <= 900, crowded_hand
         page.screenshot(path=str(OUTPUT / 'crowded-fixture.png'), full_page=True)

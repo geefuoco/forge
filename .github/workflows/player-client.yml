@@ -107,6 +107,30 @@ jobs:
       - name: Smoke native launcher and Forge without build tools on PATH
         shell: bash
         run: python tools/player-client/tests/native-smoke.py --image "$RUNNER_TEMP/player-client/NeoForge"
+      - name: Verify packaged game board on Linux
+        if: runner.os == 'Linux'
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          subprocess.run([sys.executable, '-m', 'pip', 'install', 'playwright==1.62.0'], check=True)
+          subprocess.run([sys.executable, '-m', 'playwright', 'install', '--with-deps', 'chromium'], check=True)
+          from playwright.sync_api import sync_playwright
+          environment = dict(os.environ)
+          with sync_playwright() as playwright:
+              environment['CHROMIUM_PATH'] = playwright.chromium.executable_path
+          temporary = Path(os.environ['RUNNER_TEMP'])
+          subprocess.run([sys.executable, 'tools/player-client/tests/visual-game.py', '--image', str(temporary / 'player-client/NeoForge'), '--work', str(temporary / 'player-visual-proof')], env=environment, check=True)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: runner.os == 'Linux'
+        with:
+          name: NeoForge-native-game-proof
+          path: |
+            ${{ runner.temp }}/player-visual-proof/report.json
+            ${{ runner.temp }}/player-visual-proof/*.png
+          if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: NeoForge-${{ runner.os }}

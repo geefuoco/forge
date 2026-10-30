@@ -32,3 +32,9 @@ The user deferred the environment network change on 2026-10-30. Record both requ
 - `cards.scryfall.io` supplies the printed card images.
 
 The managed environment returned HTTP 403 for the metadata endpoint. Keep real-provider verification open until those hosts are allowed. Do not treat synthetic artwork fixtures as proof of real card-image availability. Continue native-client and gameplay checks independently.
+
+## Recorded result
+
+The [local verification record](verification/visual-table-local.json) covers the final source and actual packaged Linux client. Five browser suites cover layout, inspection, artwork fixtures, prompt editors, and response races. Independent review found and verified fixes for long graveyard scrolling and owner-visible face-down inspection. The actual native executable reached the opening hand, played a land through the interface, preserved the opponent's private hand, inspected without activating a card, and displayed Forge's authoritative concession result. The run submitted 13 UI actions with no recorded browser or response errors.
+
+The [real-engine screenshot](verification/visual-table-real-engine-offline-art.png) deliberately shows the offline artwork fallback. It contains real Forge state, not a mocked board or mocked card images. Printed artwork availability remains unverified until the deferred network change. The CI workflow now runs all five browser suites and the actual native visual probe on Linux before uploading that client archive. Windows visual behavior remains a separate acceptance check.

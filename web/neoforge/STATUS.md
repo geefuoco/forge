@@ -1,5 +1,7 @@
 # NeoForge browser test version
 
+This file records the earlier companion prototype. The active product is the installed client. Use [installed-client status](../../docs/neo-forge/player-hosted-status.md) and [game experience verification](../../docs/neo-forge/game-experience.md) for current claims, including the deferred real artwork check.
+
 The private Site project is `appgprj_6adfc16750848191bc9c8772a2008c1b`, slug `neoforge`. Reuse this identity. The Site source repository contains the deployable static application and its generated catalogue. The Java engine stays on the user's PC.
 
 ## Working in this version

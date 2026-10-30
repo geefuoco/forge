@@ -346,7 +346,7 @@ function tableCard(c, interactive) {
   return `<article class="table-card ${c.tapped ? "is-tapped" : ""}" data-visible-card="${esc(c.id)}"><${actionControl} aria-label="${esc(c.name)}${c.tapped ? ", tapped" : ""}">${artwork(p.hidden ? "Face-down card" : c.artName || c.name)}<span class="card-caption">${esc(c.name)}</span>${c.pt ? `<span class="card-stats">${esc(c.pt)}</span>` : ""}</${interactive ? "button" : "div"}><button class="card-inspect" data-inspect="${esc(c.id)}" aria-label="Inspect ${esc(c.name)}" title="Inspect card">↗</button>${c.tapped || c.attacking || c.blocking ? `<span class="card-state">${c.attacking ? "Attacking" : c.blocking ? "Blocking" : "Tapped"}</span>` : ""}${counters ? `<span class="card-counter">${esc(counters)}</span>` : ""}</article>`;
 }
 function zone(name, list = [], interactive = true, extra = "") {
-  return `<section class="zone ${extra}"><h3>${name}<span>${list.length}</span></h3><div class="zone-cards">${list.map((c) => tableCard(c, interactive)).join("") || '<span class="zone-empty">No cards</span>'}</div></section>`;
+  return `<section class="zone ${extra}" data-table-zone="${esc(name)}"><h3>${name}<span>${list.length}</span></h3><div class="zone-cards">${list.map((c) => tableCard(c, interactive)).join("") || '<span class="zone-empty">No cards</span>'}</div></section>`;
 }
 function playerHeader(p, local, s, interactive) {
   const turn = s.activePlayerId === p.id;
@@ -357,7 +357,7 @@ function playerField(p, local, s, interactive) {
   const lands = permanents.filter((c) => /\bland\b/i.test(c.type || card(c.name)?.type || ""));
   const others = permanents.filter((c) => !lands.includes(c));
   const backs = !local ? `<div class="opponent-hand" aria-label="Opponent hand, ${esc(p.handCount ?? 0)} hidden cards">${Array.from({ length: Math.min(12, Math.max(0, Number(p.handCount) || 0)) }, () => '<span class="card-back" aria-hidden="true"><span>N</span></span>').join("")}${p.handCount > 12 ? `<span class="hidden-hand-count">+${p.handCount - 12}</span>` : ""}</div>` : "";
-  return `<section class="player-field ${local ? "local-field" : "opponent-field"}" aria-label="${local ? "Your" : "Opponent"} battlefield">${playerHeader(p, local, s, interactive)}${backs}<div class="seat-zones"><div class="battlefield-lanes">${zone("Battlefield", others, interactive, "permanent-lane")}${zone("Lands", lands, interactive, "land-lane")}</div><aside class="side-zones">${zone("Command", p.command, interactive, "command-zone")}<details class="zone-pocket"><summary>Graveyard <b>${p.graveyard?.length || 0}</b></summary>${zone("Graveyard", p.graveyard, interactive)}</details><details class="zone-pocket"><summary>Exile <b>${p.exile?.length || 0}</b></summary>${zone("Exile", p.exile, interactive)}</details></aside></div></section>`;
+  return `<section class="player-field ${local ? "local-field" : "opponent-field"}" data-table-player="${esc(p.id)}" aria-label="${local ? "Your" : "Opponent"} battlefield">${playerHeader(p, local, s, interactive)}${backs}<div class="seat-zones"><div class="battlefield-lanes">${zone("Battlefield", others, interactive, "permanent-lane")}${zone("Lands", lands, interactive, "land-lane")}</div><aside class="side-zones">${zone("Command", p.command, interactive, "command-zone")}<details class="zone-pocket" data-table-details="${esc(p.id)}:graveyard"><summary>Graveyard <b>${p.graveyard?.length || 0}</b></summary>${zone("Graveyard", p.graveyard, interactive)}</details><details class="zone-pocket" data-table-details="${esc(p.id)}:exile"><summary>Exile <b>${p.exile?.length || 0}</b></summary>${zone("Exile", p.exile, interactive)}</details></aside></div></section>`;
 }
 function inspectionView() {
   const inspected = visibleCards().find((c) => c.id === state.inspectedCard);
@@ -387,7 +387,7 @@ function matchView(s) {
   const activeName = s.players?.find((p) => p.id === s.activePlayerId)?.name;
   const prompt = interactive && s.prompt ? promptView(s.prompt) : `<div class="prompt waiting-prompt"><span class="priority-light"></span><h3>${s.status === "starting" ? "Preparing your game" : s.result ? "Game complete" : s.status === "error" ? "Game stopped" : activeName && s.activePlayerId !== local?.id ? `${esc(activeName)} is thinking` : "Waiting for Forge"}</h3><p>${s.status === "starting" ? "Loading decks and starting the engine. Your opening hand will appear here." : s.status === "error" ? esc(s.error || "The engine could not continue.") : s.result ? "The final board is available to inspect." : "The next decision appears here. No action is required right now."}</p></div>`;
   const stack = (s.stack || []).map((item) => `<${interactive ? `button class="stack-item" data-card="${esc(item.id)}"` : 'div class="stack-item"'}>${esc(item.label || item.name)}</${interactive ? "button" : "div"}>`).join("");
-  return `<section class="game-table" aria-label="Commander game table"><header class="table-toolbar"><div><span class="eyebrow">Commander · ${s.status === "starting" ? "Starting" : "Turn " + esc(s.turn ?? 0)}</span><h1>${esc(phase)}</h1></div><div class="turn-indicator">${activeName ? `${s.activePlayerId === local?.id ? "Your turn" : `${esc(activeName)}'s turn`}` : "Setting up the table"}</div><div class="table-tools"><span id="art-status" class="art-status">Card images · Scryfall</span><button class="button small" data-action="retry-art" hidden>Retry images</button>${interactive ? '<button class="button small danger" data-action="concede">Concede</button>' : ""}</div></header>${s.error ? `<div class="notice" role="alert">${esc(s.error)}</div>` : ""}${resultView(s)}<div class="table-layout"><div class="battle-mat">${opponents.map((p) => playerField(p, false, s, interactive)).join("")}${local ? playerField(local, true, s, interactive) : '<div class="table-starting"><div class="table-emblem" aria-hidden="true">N</div><h2>Preparing the table</h2><p>Forge is loading the match. No cards have been dealt yet.</p></div>'}${local ? zone("Your hand", local.hand || [], interactive, "hand-zone") : ""}</div><aside class="table-rail"><section class="decision-dock" aria-label="Current decision">${prompt}</section><section class="card-inspection" aria-label="Card inspection" id="card-inspection">${inspectionView()}</section><details class="stack-panel" ${s.stack?.length ? "open" : ""}><summary>Stack <b>${s.stack?.length || 0}</b></summary><div class="stack-list">${stack || '<p class="subtle">Nothing on the stack.</p>'}</div></details><details class="game-log"><summary>Game log</summary><ol>${(s.log || []).slice(-15).map((line) => `<li>${esc(line)}</li>`).join("") || '<li>No events yet.</li>'}</ol></details></aside></div></section>`;
+  return `<section class="game-table" data-match-status="${esc(s.status)}" aria-label="Commander game table"><header class="table-toolbar"><div><span class="eyebrow">Commander · ${s.status === "starting" ? "Starting" : "Turn " + esc(s.turn ?? 0)}</span><h1>${esc(phase)}</h1></div><div class="turn-indicator">${activeName ? `${s.activePlayerId === local?.id ? "Your turn" : `${esc(activeName)}'s turn`}` : "Setting up the table"}</div><div class="table-tools"><span id="art-status" class="art-status">Card images · Scryfall</span><button class="button small" data-action="retry-art" hidden>Retry images</button>${interactive ? '<button class="button small danger" data-action="concede">Concede</button>' : ""}</div></header>${s.error ? `<div class="notice" role="alert">${esc(s.error)}</div>` : ""}${resultView(s)}<div class="table-layout"><div class="battle-mat">${opponents.map((p) => playerField(p, false, s, interactive)).join("")}${local ? playerField(local, true, s, interactive) : '<div class="table-starting"><div class="table-emblem" aria-hidden="true">N</div><h2>Preparing the table</h2><p>Forge is loading the match. No cards have been dealt yet.</p></div>'}${local ? zone("Your hand", local.hand || [], interactive, "hand-zone") : ""}</div><aside class="table-rail"><section class="decision-dock" aria-label="Current decision">${prompt}</section><section class="card-inspection" aria-label="Card inspection" id="card-inspection">${inspectionView()}</section><details class="stack-panel" data-table-details="stack" ${s.stack?.length ? "open" : ""}><summary>Stack <b>${s.stack?.length || 0}</b></summary><div class="stack-list">${stack || '<p class="subtle">Nothing on the stack.</p>'}</div></details><details class="game-log" data-table-details="log"><summary>Game log</summary><ol>${(s.log || []).slice(-15).map((line) => `<li>${esc(line)}</li>`).join("") || '<li>No events yet.</li>'}</ol></details></aside></div></section>`;
 }
 function promptView(p) {
   if (p.kind === "reveal") return `<div class="prompt"><h3>${esc(p.message)}</h3><ul class="revealed-items">${p.items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul><button class="button primary" data-prompt-button="ok">Continue</button></div>`;
@@ -460,7 +460,14 @@ function updateAllocationFeedback() {
   document.querySelector("#allocation-error").textContent = issue;
   document.querySelector('#allocation-form button[type="submit"]').disabled = !!issue;
 }
+function tableScrollKey(node) {
+  return `${node.closest("[data-table-player]")?.dataset.tablePlayer || "table"}:${node.closest("[data-table-zone]")?.dataset.tableZone || ""}`;
+}
 function render() {
+  const tableView = {
+    details: new Map([...app.querySelectorAll("[data-table-details]")].map((node) => [node.dataset.tableDetails, node.open])),
+    scroll: new Map([...app.querySelectorAll(".game-table .zone-cards")].map((node) => [tableScrollKey(node), [node.scrollLeft, node.scrollTop]])),
+  };
   const active = document.activeElement;
   const promptEditor = active?.closest("form.prompt");
   const ownsEditor = promptEditor?.dataset.promptId === state.snapshot?.prompt?.id && promptEditor?.dataset.matchId === state.snapshot?.matchId;
@@ -470,6 +477,8 @@ function render() {
   }
   state.composing = false;
   state.deferredRender = false;
+  const focusedCard = active?.dataset.card;
+  const focusedInspection = active?.dataset.inspect;
   const focusedAllocation = active?.dataset.allocation;
   const focusedControl = ownsEditor ? active?.dataset.promptControl : null;
   const selection = active?.tagName === "INPUT" && active.type === "text"
@@ -477,6 +486,15 @@ function render() {
   if (state.view === "library") library();
   else if (state.view === "editor") editor();
   else play();
+  for (const node of app.querySelectorAll("[data-table-details]")) {
+    if (tableView.details.has(node.dataset.tableDetails)) node.open = tableView.details.get(node.dataset.tableDetails);
+  }
+  for (const node of app.querySelectorAll(".game-table .zone-cards")) {
+    const position = tableView.scroll.get(tableScrollKey(node));
+    if (position) [node.scrollLeft, node.scrollTop] = position;
+  }
+  if (focusedCard) [...app.querySelectorAll("[data-card]")].find((node) => node.dataset.card === focusedCard)?.focus({ preventScroll: true });
+  if (focusedInspection) [...app.querySelectorAll("[data-inspect]")].find((node) => node.dataset.inspect === focusedInspection)?.focus({ preventScroll: true });
   hydrateArt(app);
   updateArtNotice();
   if (focusedAllocation)
@@ -700,6 +718,9 @@ function exportDeck(d) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 let importDraft;
+app.addEventListener("toggle", (event) => {
+  if (event.target.matches("details[open]")) hydrateArt(event.target);
+}, true);
 app.addEventListener("pointerover", (event) => {
   const target = event.target.closest("[data-visible-card]");
   if (target) inspectCard(target.dataset.visibleCard);

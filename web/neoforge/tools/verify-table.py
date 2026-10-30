@@ -1,4 +1,5 @@
 """Exercise table layout and interactions with explicit synthetic artwork fixtures."""
+import os
 import copy
 import functools
 import http.server
@@ -66,8 +67,16 @@ def image(route):
 
 try:
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
+        browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH", "/usr/bin/chromium"), args=['--no-sandbox'])
         page = browser.new_page(viewport={'width': 1440, 'height': 900})
+        page.add_init_script('''
+            window.artLookupStarts = [];
+            const originalFetch = window.fetch;
+            window.fetch = (url, options) => {
+                if (String(url).startsWith('https://api.scryfall.com/')) window.artLookupStarts.push(performance.now());
+                return originalFetch(url, options);
+            };
+        ''')
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.route('**/data/cards.json', lambda route: route.fulfill(json=[dict(name=name, type='Basic Land' if name in ('Island', 'Swamp') else 'Creature', text='Synthetic fixture rules text.', mana='{2}{U}', identity='U', mv=3, commander=False) for name in names]))
         page.route('**/api/v1/**', api)
@@ -81,10 +90,27 @@ try:
         expect(page.locator('[data-art-state="ready"]').first).to_be_visible(timeout=15000)
         expect(page.locator('[data-visible-card="30"] [data-art-state="ready"]')).to_have_count(1, timeout=15000)
         assert not any(name == 'Face-down card' for name, _ in requests)
-        assert all(requests[i][1] - requests[i - 1][1] >= .17 for i in range(1, len(requests))), requests
+        starts = page.evaluate('window.artLookupStarts')
+        assert all(starts[i] - starts[i - 1] >= 190 for i in range(1, len(starts))), starts
         for name in {name for name, _ in requests}:
             assert len([x for x, _ in requests if x == name]) == 1
         expect(page.locator('[data-art-state="loading"]')).to_have_count(0, timeout=15000)
+        assert not any(name == 'Missing Artwork' for name, _ in requests), 'Closed graveyard loaded artwork'
+        snapshot['players'].reverse()
+        snapshot['seat'] = 1
+        snapshot['revision'] += 1
+        expect(page.locator('.local-field')).to_have_attribute('data-table-player', 'you')
+        page.wait_for_timeout(1200)
+        expect(page.locator('.local-field')).to_have_attribute('data-table-player', 'you')
+        expect(page.locator('.hand-zone [data-card]')).to_have_count(7)
+        snapshot['players'].reverse()
+        snapshot['seat'] = 0
+        snapshot['revision'] += 1
+        page.wait_for_timeout(1200)
+        page.locator('[data-nav="editor"]').click()
+        expect(page.get_by_role('heading', name='Make it yours.', exact=True)).to_be_visible()
+        page.locator('[data-nav="play"]').click()
+        expect(page.locator('.game-table')).to_be_visible()
         first = page.locator('.hand-zone [data-card]').first
         first.focus()
         expect(page.locator('#card-inspection h3')).to_have_text('Island')
@@ -106,6 +132,9 @@ try:
         assert len(requests) == before, 'Polling repeated cached image lookups'
         page.locator('.local-field .zone-pocket').first.locator('summary').click()
         expect(page.locator('[data-visible-card="31"] [data-art-state="unavailable"]')).to_have_count(1, timeout=10000)
+        snapshot['revision'] += 1
+        page.wait_for_timeout(1300)
+        assert page.locator('[data-table-details="you:graveyard"]').evaluate('(node) => node.open'), 'Polling closed the graveyard'
         expect(page.locator('[data-action="retry-art"]')).to_be_visible()
         page.locator('[data-action="retry-art"]').click()
         page.wait_for_timeout(500)

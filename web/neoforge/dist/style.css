@@ -870,9 +870,9 @@ dialog::backdrop {
 .side-zones { border-left: 1px solid #65817b26; padding-left: 10px; }
 .side-zones .table-card { --card-width: 70px; }
 .side-zones .zone-cards { gap: 5px; }
-.zone-pocket { padding: 7px 0; border-top: 1px solid #65817b26; margin-top: 5px; }
+.zone-pocket { position: relative; padding: 7px 0; border-top: 1px solid #65817b26; margin-top: 5px; }
 .zone-pocket summary { display: flex; justify-content: space-between; gap: 7px; font-size: 9px; color: #a3b8b7; cursor: pointer; }
-.zone-pocket .zone { max-height: 230px; overflow: auto; }
+.zone-pocket .zone { position: absolute; right: 0; top: 100%; z-index: 10; width: min(250px, 70vw); max-height: 230px; overflow: auto; padding: 10px; background: #142830; border: 1px solid #708f89; border-radius: 8px; box-shadow: 0 8px 25px #0008; }
 .zone-pocket .zone h3 { display: none; }
 .opponent-hand { display: flex; justify-content: center; align-items: center; height: 24px; margin-top: -42px; margin-bottom: 18px; pointer-events: none; }
 .card-back { display: grid; place-items: center; width: 20px; height: 29px; margin-left: -6px; border-radius: 3px; border: 1px solid #9b956d; background: radial-gradient(ellipse, #2a5557, #112d3e 55%, #c1a171 58%, #142b38 65%); color: #b59a72; font: 12px Georgia, serif; transform: rotate(-5deg); box-shadow: 0 2px 5px #0008; }

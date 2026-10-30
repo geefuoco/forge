@@ -62,7 +62,7 @@ function schedule() {
     scheduled = false;
     if (active < 3) {
       const name = queue.shift();
-      if (![...document.querySelectorAll("[data-art-name]")].some((node) => keyFor(node.dataset.artName) === keyFor(name))) {
+      if (![...document.querySelectorAll("[data-art-name]")].some((node) => !node.closest("details:not([open])") && keyFor(node.dataset.artName) === keyFor(name))) {
         records.delete(keyFor(name));
         schedule();
         return;
@@ -110,7 +110,9 @@ export function artwork(name, className = "") {
 }
 export function hydrateArt(root = document) {
   const nodes = [...(root.matches?.("[data-art-name]") ? [root] : []), ...root.querySelectorAll("[data-art-name]")];
-  for (const node of nodes) { request(node.dataset.artName); update(node); }
+  for (const node of nodes) {
+    if (!node.closest("details:not([open])")) { request(node.dataset.artName); update(node); }
+  }
 }
 export function retryArt() {
   for (const [key, record] of records) if (record.status === "unavailable") records.delete(key);

@@ -468,10 +468,25 @@ public final class Bridge {
             List<Object> result = new ArrayList<>();
             for (CardView c : source) {
                 String cid = String.valueOf(c.getId()); cards.put(cid, c);
-                if (!c.canBeShownTo(human)) { result.add(map("id", cid, "name", "Face-down card", "tapped", c.isTapped())); continue; }
+                if (!c.canBeShownTo(human) || (c.isFaceDown() && !c.canFaceDownBeShownTo(human))) {
+                    result.add(map("id", cid, "name", "Face-down card", "tapped", c.isTapped(), "faceDown", true));
+                    continue;
+                }
                 var state = c.getCurrentState();
-                result.add(map("id", cid, "name", c.getName(), "mana", String.valueOf(state.getManaCost()),
-                        "type", String.valueOf(state.getType()), "text", c.getText(), "tapped", c.isTapped()));
+                Map<String,Object> card = map("id", cid, "name", c.getName(), "mana", String.valueOf(state.getManaCost()),
+                        "type", String.valueOf(state.getType()), "text", c.getText(), "tapped", c.isTapped(),
+                        "faceDown", c.isFaceDown(), "attacking", c.isAttacking(), "blocking", c.isBlocking(), "token", c.isToken());
+                if (state.isCreature()) card.put("pt", state.getPower() + "/" + state.getToughness());
+                if (!c.isFaceDown()) {
+                    String artName = state.getOracleName();
+                    if (artName.isEmpty()) artName = state.getName();
+                    if (!artName.isEmpty()) card.put("artName", artName);
+                }
+                Map<String,Integer> counters = new TreeMap<>();
+                if (c.getCounters() != null) for (var entry : c.getCounters().entrySet())
+                    counters.merge(entry.getElement().getName(), entry.getCount(), Integer::sum);
+                card.put("counters", counters);
+                result.add(card);
             }
             return result;
         }

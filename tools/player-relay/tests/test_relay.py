@@ -72,6 +72,48 @@ class RelayHTTPTest(unittest.TestCase):
         action.update(changes)
         return dict(commandId=str(uuid.uuid4()), action=action)
 
+    def test_direct_mode_ignores_forged_forwarding_headers(self):
+        data = dict(protocolVersion=1, buildId='test-release')
+        for i in range(4):
+            self.assertEqual(self.request('POST', '/relay/v1/rooms', data,
+                             headers={'X-Relay-Client-IP': f'192.0.2.{i}'})[0], 201)
+        self.assertEqual(self.request('POST', '/relay/v1/rooms', data,
+                         headers={'X-Relay-Client-IP': '203.0.113.1'})[0], 429)
+
+    def test_trusted_proxy_claims_are_strict_and_quotas_use_normalized_ip(self):
+        self.server.identity = relay.ClientIdentity('127.0.0.1')
+        data = dict(protocolVersion=1, buildId='test-release')
+        for claim in (None, '', 'host.test', '127.0.0.1:80', '1.2.3.4, 5.6.7.8',
+                      'fe80::1%eth0', 'a' * 65):
+            headers = {} if claim is None else {'X-Relay-Client-IP': claim}
+            self.assertEqual(self.request('POST', '/relay/v1/rooms', data, headers=headers)[0], 400)
+        for i in range(4):
+            self.assertEqual(self.request('POST', '/relay/v1/rooms', data,
+                             headers={'X-Relay-Client-IP': '2001:db8:0:0::1'})[0], 201)
+        self.assertEqual(self.request('POST', '/relay/v1/rooms', data,
+                         headers={'X-Relay-Client-IP': '2001:db8::1'})[0], 429)
+        self.assertEqual(self.request('POST', '/relay/v1/rooms', data,
+                         headers={'X-Relay-Client-IP': '192.0.2.1'})[0], 201)
+        self.assertEqual(self.request('GET', '/health')[0], 200)
+        self.assertEqual(self.request('GET', '/health', headers={'Host': 'wrong'})[0], 403)
+        conn = http.client.HTTPConnection('127.0.0.1', self.server.server_port)
+        conn.putrequest('POST', '/relay/v1/rooms', skip_host=True)
+        for name, value in [('Host', '127.0.0.1'), ('X-Relay-Client-IP', '192.0.2.2'),
+                            ('X-Relay-Client-IP', '192.0.2.3'), ('Content-Type', 'application/json'),
+                            ('Content-Length', '2')]:
+            conn.putheader(name, value)
+        conn.endheaders(b'{}')
+        self.assertEqual(conn.getresponse().status, 400)
+        conn.close()
+
+    def test_untrusted_proxy_peer_is_rejected_and_policy_validates_at_boundary(self):
+        for claim in ('', 'hostname', 'fe80::1%eth0'):
+            with self.assertRaises(ValueError):
+                relay.ClientIdentity(claim)
+        self.server.identity = relay.ClientIdentity('192.0.2.1')
+        self.assertEqual(self.request('POST', '/relay/v1/rooms', {},
+                         headers={'X-Relay-Client-IP': '127.0.0.1'})[0], 403)
+
     def test_join_checks_versions_before_atomic_one_use_and_role_isolation(self):
         room = self.create()
         bad = dict(protocolVersion=1, buildId='wrong', inviteToken=room['inviteToken'])

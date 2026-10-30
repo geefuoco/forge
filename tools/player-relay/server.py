@@ -46,6 +46,35 @@ def whole(value):
     return type(value) in (int, float) and math.isfinite(value) and value == int(value) and 0 <= value <= 2**63 - 1
 
 
+def literal_ip(value):
+    if not isinstance(value, str) or len(value) > 64 or '%' in value:
+        raise ValueError('Expected a literal IP address')
+    return str(ipaddress.ip_address(value))
+
+
+@dataclass(frozen=True)
+class ClientIdentity:
+    trusted_peer: str | None = None
+
+    def __post_init__(self):
+        if self.trusted_peer is not None:
+            object.__setattr__(self, 'trusted_peer', literal_ip(self.trusted_peer))
+
+    def resolve(self, peer, headers):
+        peer = literal_ip(peer)
+        if self.trusted_peer is None:
+            return peer
+        if peer != self.trusted_peer:
+            raise Failure(403, 'Untrusted proxy peer')
+        claims = headers.get_all('X-Relay-Client-IP', [])
+        if len(claims) != 1:
+            raise Failure(400, 'Expected one client IP')
+        try:
+            return literal_ip(claims[0])
+        except ValueError:
+            raise Failure(400, 'Invalid client IP') from None
+
+
 @dataclass
 class Command:
     command_id: str
@@ -328,8 +357,9 @@ class RelayServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
     request_queue_size = 32
 
-    def __init__(self, address, registry, authority, max_threads=32):
+    def __init__(self, address, registry, authority, max_threads=32, identity=None):
         self.registry, self.authority = registry, authority
+        self.identity = identity or ClientIdentity()
         self.slots = threading.BoundedSemaphore(max_threads)
         super().__init__(address, Handler)
 
@@ -392,6 +422,9 @@ class Handler(BaseHTTPRequestHandler):
                 raise Failure(400, 'Query strings are not accepted')
             if self.headers.get('Transfer-Encoding'):
                 raise Failure(400, 'Transfer encoding is not accepted')
+            ip = self.client_address[0]
+            if not (self.command == 'GET' and self.path == '/health'):
+                ip = self.server.identity.resolve(ip, self.headers)
             lengths = self.headers.get_all('Content-Length', [])
             if len(lengths) > 1:
                 raise Failure(400, 'Invalid Content-Length')
@@ -423,7 +456,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise Failure(401, 'Invalid capability')
             auth = authorization[0] if authorization else ''
             token = auth[7:] if auth.startswith('Bearer ') and len(auth) <= 128 else ''
-            status, body = self.server.registry.dispatch(self.command, self.path, data, token, self.client_address[0])
+            status, body = self.server.registry.dispatch(self.command, self.path, data, token, ip)
             self.respond(status, body)
         except Failure as error:
             self.respond(error.status, dict(error=error.message))
@@ -473,6 +506,7 @@ def main():
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--max-rooms', type=int, default=64)
     parser.add_argument('--max-threads', type=int, default=32)
+    parser.add_argument('--trusted-proxy-peer', type=literal_ip)
     args = parser.parse_args()
     try:
         origin = origin_value(args.origin, args.dev)
@@ -480,7 +514,8 @@ def main():
         parser.error(str(error))
     if not 1 <= args.max_rooms <= 1024 or not 1 <= args.max_threads <= 128:
         parser.error('room/thread bounds must be positive and at most 1024/128')
-    server = RelayServer((args.host, args.port), Registry(origin, args.max_rooms), urlsplit(origin).netloc, args.max_threads)
+    server = RelayServer((args.host, args.port), Registry(origin, args.max_rooms), urlsplit(origin).netloc, args.max_threads,
+                         ClientIdentity(args.trusted_proxy_peer))
     print(f'NeoForge relay listening on {args.host}:{server.server_port}', flush=True)
     try:
         server.serve_forever()

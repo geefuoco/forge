@@ -81,3 +81,15 @@ The installed client exposed text buttons in large side-by-side zone panels. Eng
 Status: fixed in the visible-card projection correction.
 
 Forge's `canBeShownTo` permits a public battlefield card object even when its face is hidden. The projection now also checks `canFaceDownBeShownTo` before reading identity and rules fields. Opponent face-down cards retain only an opaque action ID, the hidden label, tapped state, and a face-down flag. Real CardView regression checks cover an opponent's face-down battlefield card, owner visibility, and the unchanged hidden-hand boundary.
+
+## Browser prompt fixtures still require retired companion pairing
+
+Status: corrected for the installed-client session flow.
+
+Four browser checks attempted to fill `#host-token` and submit the removed pairing dialog. They failed before exercising prompts on the current client. Their fixtures now supply the actual session and profile-library responses, preserve the existing interaction and stale-response assertions, and use the current terminal board selectors. A browser CI job runs all five visual and prompt suites. Artwork is explicitly mocked in these checks.
+
+## Deck builder renderer is shadowed by a prompt editor variable
+
+Status: fixed in the visual table correction.
+
+The local `editor` variable in `render()` hid the deck builder's `editor()` function. The prompt-control variable is now `promptEditor`, so navigating into deck editing calls the intended renderer. This correction preserves the existing prompt focus and composition handling.

@@ -23,3 +23,12 @@ Current power and toughness, counters, tapped state, and combat flags must come 
 - Screenshots identify whether the engine and artwork provider were real or mocked. Mock artwork cannot establish successful public artwork loading.
 
 This change does not establish MTGA feature parity, measured 60 FPS, broad Commander interaction coverage, AI quality, save recovery, or public separate-network play. Those remain explicit project acceptance work.
+
+## Deferred real artwork verification
+
+The user deferred the environment network change on 2026-10-30. Record both required hosts for the next verification session:
+
+- `api.scryfall.com` supplies visible-card image metadata.
+- `cards.scryfall.io` supplies the printed card images.
+
+The managed environment returned HTTP 403 for the metadata endpoint. Keep real-provider verification open until those hosts are allowed. Do not treat synthetic artwork fixtures as proof of real card-image availability. Continue native-client and gameplay checks independently.

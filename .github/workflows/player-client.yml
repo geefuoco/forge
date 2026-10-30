@@ -52,6 +52,17 @@ jobs:
         shell: bash
         run: |
           mvn -B -pl forge-gui-desktop -am -DskipTests -Dcheckstyle.skip compile org.apache.maven.plugins:maven-dependency-plugin:3.1.2:build-classpath -DincludeScope=runtime -Dmdep.outputFile="$RUNNER_TEMP/player-runtime-classpath.txt"
+      - name: Verify protocol and visible card privacy
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          environment = dict(os.environ)
+          dependencies = (Path(os.environ['RUNNER_TEMP']) / 'player-runtime-classpath.txt').read_text().strip()
+          environment['FORGE_BRIDGE_CLASSPATH'] = str(Path('forge-gui-desktop/target/classes').resolve()) + os.pathsep + dependencies
+          subprocess.run([sys.executable, 'tools/browser-bridge/tests/run-prompts.py'], env=environment, check=True)
       - name: Generate catalogue provenance
         shell: bash
         run: |

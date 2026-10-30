@@ -69,3 +69,15 @@ Forge compiled on Windows, but writing `cards.json` failed with a CP1252 `Unicod
 Status: fixed and checked in the actual non-root container.
 
 A local image built from the managed checkout could not open `server.py` because the source file had mode 0600 and Docker preserved it. The non-root image user could not read the root-owned file. `COPY --chmod=0444` now gives the runtime a deterministic read-only script. The rebuilt container passed health, room creation, guest join, role refusal, and close revocation under the documented resource limits without Java installed.
+
+## Game screen has no card artwork or spatial battlefield
+
+Status: visual correction in progress.
+
+The installed client exposed text buttons in large side-by-side zone panels. Engine and transport checks did not establish the intended game experience. The correction adds a spatial battlefield, visible-card artwork, a separate inspection control, and explicit visual acceptance checks. See `game-experience.md` for the acceptance boundary. Public artwork loading remains distinct from mocked browser layout checks.
+
+## Face-down battlefield cards need a separate visibility gate
+
+Status: fixed in the visible-card projection correction.
+
+Forge's `canBeShownTo` permits a public battlefield card object even when its face is hidden. The projection now also checks `canFaceDownBeShownTo` before reading identity and rules fields. Opponent face-down cards retain only an opaque action ID, the hidden label, tapped state, and a face-down flag. Real CardView regression checks cover an opponent's face-down battlefield card, owner visibility, and the unchanged hidden-hand boundary.

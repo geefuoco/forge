@@ -28,6 +28,14 @@ Two independent reviewers passed identity/protocol boundaries and deployment/pro
 
 Public hosting, DNS, public certificate issuance, and separate-network play remain unverified. The new CI workflow runs the same smoke; its remote result has not yet been observed.
 
+## Game screen correction
+
+The installed client now has a spatial board, a bottom hand, a separate decision and card inspection rail, and a Scryfall artwork adapter with explicit unavailable state. Current creature stats, counters, tapped state, and combat flags are projected from Forge. Hidden opponent identities remain outside the projection and artwork lookup.
+
+The [game experience record](game-experience.md) links the exact checks and a real-engine screenshot. An independently checked Linux bundle played a land through the visible board and completed by confirmed concession in 13 UI actions with no recorded browser or response errors. It did not complete a natural game. All five browser suites and the new real CardView checks pass. Review found and verified corrections for long graveyard scrolling and owner-visible face-down inspection.
+
+Real printed artwork verification is deferred at the user's request. Allow `api.scryfall.com` and `cards.scryfall.io` in the managed environment before that check. Fixture images are synthetic, and the native proof forces artwork offline. This work does not establish MTGA parity, measured FPS, or broad Commander usability.
+
 ## Independent verification
 
 Exactly two initial independent verifiers covered engine and relay boundaries, then browser and packaging behavior. They found a Join dialog event-routing defect and a closed-room capacity leak. Both corrections passed an independent fix-forward round with two reviewers. A separate loopback probe confirmed that closing a room wakes a pending guest action with HTTP 410, releases capacity, and revokes its credentials. The installed-browser reviewer confirmed the corrected dialog forwards exactly one native relay request and displays a relay rejection without losing the form.

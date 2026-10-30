@@ -1,3 +1,4 @@
+import os
 import copy
 import functools
 import http.server
@@ -25,8 +26,10 @@ def api(route):
         route.fulfill(status=204, headers=headers)
         return
     path = request.url.rsplit("/", 1)[-1]
-    if path == "status":
-        data = {"schemaVersion": 1, "status": "ready"}
+    if path == "session":
+        data = {"schemaVersion": 1, "authenticated": True, "canCreate": True, "seat": 0, "hasMatch": True, "transport": "desktop"}
+    elif path == "library":
+        data = {"schemaVersion": 1, "exists": True, "decks": []}
     elif path == "action":
         submissions.append(request.post_data_json)
         snapshot.pop("prompt", None)
@@ -39,17 +42,14 @@ def api(route):
 
 try:
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(executable_path="/usr/bin/chromium", headless=True, args=["--no-sandbox"])
+        browser = playwright.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH", "/usr/bin/chromium"), headless=True, args=["--no-sandbox"])
         page = browser.new_page(viewport={"width": 390, "height": 844})
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.route("**/data/cards.json", lambda route: route.fulfill(json=[]))
         page.route("**/api/v1/**", api)
+        page.route("https://api.scryfall.com/**", lambda route: route.fulfill(status=404, json={"object": "error"}))
         page.goto(origin)
-        page.locator('[data-action="connect"]').click()
-        page.locator("#host-token").fill("test-token")
-        page.locator('[data-action="pair"]').click()
-        page.locator('[data-nav="play"]').click()
         expect(page.get_by_role("heading", name="Transformed cards")).to_be_visible()
         expect(page.locator(".revealed-items li")).to_have_count(3)
         expect(page.locator('.prompt input, .prompt [data-card], .prompt img')).to_have_count(0)
@@ -74,8 +74,8 @@ try:
         expect(page.locator(".game-result")).to_contain_text("<img src=x onerror=alert(1)>")
         expect(page.locator('[data-player], [data-card], [data-prompt-button], [data-action="concede"]')).to_have_count(0)
         expect(page.get_by_role("heading", name="Old prompt")).to_have_count(0)
-        expect(page.locator(".zone-cards").get_by_text("Known card", exact=True)).to_be_visible()
-        expect(page.locator(".zone-cards").get_by_text("Public card", exact=True)).to_be_visible()
+        expect(page.locator('[data-visible-card="card"]')).to_contain_text("Known card")
+        expect(page.locator('[data-visible-card="opponent-card"]')).to_contain_text("Public card")
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), "Narrow result overflows"
         snapshot["result"]["participants"][0] = {"name": "You", "outcome": "lost", "lossReason": "LifeReachedZero"}
         snapshot["result"]["participants"][1] = {"name": "CPU", "outcome": "won"}
@@ -100,7 +100,7 @@ try:
         snapshot["error"] = "Unsupported decision"
         snapshot["revision"] += 1
         expect(page.locator(".game-result")).to_have_count(0)
-        expect(page.locator(".panel-head")).to_contain_text(["Start a match", "Unsupported decision"])
+        expect(page.locator('[role="alert"]')).to_contain_text("Unsupported decision")
         expect(page.locator('[data-player], [data-card], [data-prompt-button], [data-action="concede"]')).to_have_count(0)
         snapshot["status"] = "playing"
         snapshot.pop("error")

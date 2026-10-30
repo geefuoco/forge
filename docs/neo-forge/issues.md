@@ -69,3 +69,39 @@ Forge compiled on Windows, but writing `cards.json` failed with a CP1252 `Unicod
 Status: fixed and checked in the actual non-root container.
 
 A local image built from the managed checkout could not open `server.py` because the source file had mode 0600 and Docker preserved it. The non-root image user could not read the root-owned file. `COPY --chmod=0444` now gives the runtime a deterministic read-only script. The rebuilt container passed health, room creation, guest join, role refusal, and close revocation under the documented resource limits without Java installed.
+
+## Game screen has no card artwork or spatial battlefield
+
+Status: visual correction implemented; real artwork-provider verification remains deferred.
+
+The installed client exposed text buttons in large side-by-side zone panels. Engine and transport checks did not establish the intended game experience. The correction adds a spatial battlefield, visible-card artwork, a separate inspection control, and explicit visual acceptance checks. See `game-experience.md` for the acceptance boundary. Public artwork loading remains distinct from mocked browser layout checks.
+
+## Face-down battlefield cards need a separate visibility gate
+
+Status: fixed in the visible-card projection correction.
+
+Forge's `canBeShownTo` permits a public battlefield card object even when its face is hidden. The projection now also checks `canFaceDownBeShownTo` before reading identity and rules fields. Opponent face-down cards retain only an opaque action ID, the hidden label, tapped state, and a face-down flag. Real CardView regression checks cover an opponent's face-down battlefield card, owner visibility, and the unchanged hidden-hand boundary.
+
+## Browser prompt fixtures still require retired companion pairing
+
+Status: corrected for the installed-client session flow.
+
+Four browser checks attempted to fill `#host-token` and submit the removed pairing dialog. They failed before exercising prompts on the current client. Their fixtures now supply the actual session and profile-library responses, preserve the existing interaction and stale-response assertions, and use the current terminal board selectors. A browser CI job runs all five visual and prompt suites. Artwork is explicitly mocked in these checks.
+
+## Deck builder renderer is shadowed by a prompt editor variable
+
+Status: fixed in the visual table correction.
+
+The local `editor` variable in `render()` hid the deck builder's `editor()` function. The prompt-control variable is now `promptEditor`, so navigating into deck editing calls the intended renderer. This correction preserves the existing prompt focus and composition handling.
+
+## Polling resets scroll inside an open graveyard
+
+Status: fixed and independently verified.
+
+Independent browser review opened a 30-card graveyard, scrolled its `.zone` container to 150 pixels, advanced the snapshot revision, and observed a reset to zero. The renderer had preserved only the inner `.zone-cards` offsets. It now preserves both actual containers with distinct stable keys. The visual regression checks a long graveyard across polling as well as retaining the open pocket.
+
+## Owner-visible face-down cards lose their allowed inspection text
+
+Status: fixed and independently verified.
+
+Fresh browser review supplied an owner-visible face-down card with authorized name and rules text. The inspector showed its known title but incorrectly replaced its text with an unknown-identity message. Presentation now separates unknown identity from physical face-down artwork state. Known owners retain their projected rules text, while all face-down cards keep cardbacks and make no artwork lookup. The visual regression checks both the allowed text and the absence of an artwork request.

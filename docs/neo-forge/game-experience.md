@@ -1,0 +1,40 @@
+# Commander game experience
+
+The installed client's game screen must be evaluated as a playing interface. Successful engine requests alone do not establish that experience.
+
+## Current implementation target
+
+Use a spatial table with the opponent above the local player, the local hand along the bottom, and a separate decision and card inspection rail. Collapse workspace navigation during a game. Keep life, turn, phase, public zones, and the current decision visible.
+
+Render printed card images for visible cards. Preserve names, rules text, and actions when artwork is unavailable. Artwork loads asynchronously from Scryfall and its image CDN. Lookup traffic must be bounded and deduplicated. Never request images for hidden cards or use stack ability descriptions as card identities.
+
+Clicking a card sends the existing authoritative Forge action. Hover, keyboard focus, and the separate inspection button inspect without submitting an action. Do not describe a card as playable or a legal target unless Forge supplies that information. Preserve the existing choice, text, reveal, ordering, and allocation editors.
+
+Current power and toughness, counters, tapped state, and combat flags must come from Forge. Printed artwork is not authoritative for modified statistics. A face-down card's hidden identity must not enter the snapshot or artwork requests.
+
+## Acceptance evidence
+
+- A real packaged application reaches the opening hand, accepts mulligan and priority decisions, plays a land, and displays the authoritative result.
+- Existing prompt and stale-response regressions still pass.
+- Desktop, crowded battlefield, and narrow-window checks show readable controls without horizontal page overflow.
+- Inspection does not submit game actions. Actual card activation retains the authoritative card and prompt identifiers.
+- Hidden opponent hands and unseen face-down cards produce no artwork identity requests.
+- Provider success, missing artwork, timeouts, repeated rendering, and retry behavior have distinct checks.
+- Screenshots identify whether the engine and artwork provider were real or mocked. Mock artwork cannot establish successful public artwork loading.
+
+This change does not establish MTGA feature parity, measured 60 FPS, broad Commander interaction coverage, AI quality, save recovery, or public separate-network play. Those remain explicit project acceptance work.
+
+## Deferred real artwork verification
+
+The user deferred the environment network change on 2026-10-30. Record both required hosts for the next verification session:
+
+- `api.scryfall.com` supplies visible-card image metadata.
+- `cards.scryfall.io` supplies the printed card images.
+
+The managed environment returned HTTP 403 for the metadata endpoint. Keep real-provider verification open until those hosts are allowed. Do not treat synthetic artwork fixtures as proof of real card-image availability. Continue native-client and gameplay checks independently.
+
+## Recorded result
+
+The [local verification record](verification/visual-table-local.json) covers the final source and actual packaged Linux client. Five browser suites cover layout, inspection, artwork fixtures, prompt editors, and response races. Independent review found and verified fixes for long graveyard scrolling and owner-visible face-down inspection. The actual native executable reached the opening hand, played a land through the interface, preserved the opponent's private hand, inspected without activating a card, and displayed Forge's authoritative concession result. The run submitted 13 UI actions with no recorded browser or response errors.
+
+The [real-engine screenshot](verification/visual-table-real-engine-offline-art.png) deliberately shows the offline artwork fallback. It contains real Forge state, not a mocked board or mocked card images. Printed artwork availability remains unverified until the deferred network change. The CI workflow now runs all five browser suites and the actual native visual probe on Linux before uploading that client archive. Windows visual behavior remains a separate acceptance check.

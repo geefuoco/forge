@@ -1,3 +1,5 @@
+import { artwork, hydrateArt, retryArt, artStatus } from "./card-art.js";
+
 const invitation = new URLSearchParams(location.hash.slice(1)).get("invite");
 if (invitation !== null) history.replaceState(null, "", location.pathname + location.search);
 
@@ -69,6 +71,7 @@ const state = {
   inviteUrl: "",
   mode: "cpu",
   snapshot: null,
+  inspectedCard: null,
   selection: { matchId: null, promptId: null, ids: [], number: null, allocations: {} },
   composing: false,
   deferredRender: false,
@@ -216,7 +219,8 @@ function validation(d) {
   return out;
 }
 function shell(content) {
-  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="mark"><span>N</span></div>NeoForge</div><nav class="nav" aria-label="Main navigation"><div class="navlabel">Your workspace</div><button data-nav="library" class="${state.view === "library" ? "active" : ""}"><span class="icon">▦</span> Library</button><button data-nav="editor" class="${state.view === "editor" ? "active" : ""}"><span class="icon">◇</span> Deck builder</button><button data-nav="play" class="${state.view === "play" ? "active" : ""}"><span class="icon">♟</span> Play</button></nav><div class="sidefoot"><span class="status-dot ${state.connected ? "on" : ""}"></span>${state.connected ? (desktopClient() ? "Client ready" : "Server connected") : "Disconnected"}<br>${desktopClient() ? "Decks are saved in your app profile." : "Decks are saved in this browser."}</div></aside><div class="workspace"><header class="topbar"><span>COMMANDER / ${state.view.toUpperCase()}</span><div class="top-actions"><button class="button ghost small" data-action="help">How it works</button><button class="button small" data-action="connect"><span class="status-dot ${state.connected ? "on" : ""}"></span>${desktopClient() ? "Client info" : state.connected ? "Session" : "Sign in"}</button></div></header><main class="main">${state.storageError ? `<div class="notice">${esc(state.storageError)}</div>` : ""}${content}</main></div></div>`;
+  const atTable = state.view === "play" && ["starting", "playing", "finished", "error"].includes(state.snapshot?.status);
+  app.innerHTML = `<div class="shell ${atTable ? "at-table" : ""}"><aside class="sidebar"><div class="brand"><div class="mark"><span>N</span></div>NeoForge</div><nav class="nav" aria-label="Main navigation"><div class="navlabel">Your workspace</div><button data-nav="library" class="${state.view === "library" ? "active" : ""}"><span class="icon">▦</span> Library</button><button data-nav="editor" class="${state.view === "editor" ? "active" : ""}"><span class="icon">◇</span> Deck builder</button><button data-nav="play" class="${state.view === "play" ? "active" : ""}"><span class="icon">♟</span> Play</button></nav><div class="sidefoot"><span class="status-dot ${state.connected ? "on" : ""}"></span>${state.connected ? (desktopClient() ? "Client ready" : "Server connected") : "Disconnected"}<br>${desktopClient() ? "Decks are saved in your app profile." : "Decks are saved in this browser."}</div></aside><div class="workspace"><header class="topbar"><span>COMMANDER / ${state.view.toUpperCase()}</span><div class="top-actions"><button class="button ghost small" data-action="help">How it works</button><button class="button small" data-action="connect"><span class="status-dot ${state.connected ? "on" : ""}"></span>${desktopClient() ? "Client info" : state.connected ? "Session" : "Sign in"}</button></div></header><main class="main">${state.storageError ? `<div class="notice">${esc(state.storageError)}</div>` : ""}${content}</main></div></div>`;
 }
 function library() {
   shell(
@@ -273,7 +277,7 @@ function editor() {
   });
   let max = Math.max(1, ...bins);
   shell(
-    `<div class="title-row"><div><div class="eyebrow">Deck builder / ${total(d)} cards</div><h1>${esc(d.name)}</h1><p>Make changes freely. Your deck saves as you go.</p></div><div class="toolbar"><button class="button" data-action="deck-menu">Deck options</button><button class="button primary" data-action="test-draw">Test draw</button></div></div><div class="grid"><div><div class="panel"><div class="panel-head"><div><h2>Card catalogue</h2><span class="subtle">${cards.length.toLocaleString()} cards to explore</span></div></div><div class="panel-body"><div class="searchbar"><input id="search" type="search" placeholder="Search name or rules text" value="${esc(state.query)}" aria-label="Search card name or rules text"></div><div class="filters"><select id="color" aria-label="Color identity"><option value="">Any color identity</option>${["C", ...Array.from({ length: 31 }, (_, i) => [..."WUBRG"].filter((_, bit) => (i + 1) & (1 << bit)).join(""))].map((x) => `<option ${state.color === x ? "selected" : ""} value="${x}">${x === "C" ? "Colorless" : x === "WUBRG" ? "All colors" : x + " or colorless"}</option>`).join("")}</select><select id="type" aria-label="Card type"><option value="">Any type</option>${["Creature", "Land", "Instant", "Sorcery", "Artifact", "Enchantment", "Planeswalker", "Battle"].map((x) => `<option ${state.type === x ? "selected" : ""}>${x}</option>`).join("")}</select><select id="mv" aria-label="Mana value"><option value="">Any mana value</option>${["0", "1", "2", "3", "4", "5", "6", "7+"].map((x) => `<option ${state.mv === x ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="subtle">${filtered.length.toLocaleString()} results ${filtered.length > showing.length ? `· showing ${showing.length}` : ""}</div><div class="result-list">${showing.map((c) => `<div class="card-row"><div class="card-info"><button class="card-name" data-preview="${esc(c.name)}">${esc(c.name)}</button><div class="card-type">${esc(c.type)}</div></div><span class="mana">${esc(c.mana)}</span><button class="button small" data-add="${esc(c.name)}" aria-label="Add ${esc(c.name)} to deck">＋</button></div>`).join("") || '<div class="empty">No cards match these filters.</div>'}${filtered.length > showing.length ? '<button class="button" data-action="more">Show more</button>' : ""}</div></div></div></div><aside><div class="panel"><div class="panel-head"><h2>Deck overview</h2><span class="subtle">${total(d)} / 100</span></div><div class="panel-body"><div class="stat-grid"><div class="stat"><b>${total(d)}</b><span>Cards</span></div><div class="stat"><b>${main.filter((e) => /land/i.test(card(e.name)?.type || "")).reduce((n, e) => n + e.quantity, 0)}</b><span>Lands</span></div><div class="stat"><b>${commands.length}</b><span>Commanders</span></div></div><div class="notice ${errors.length ? "" : "good"}">${errors.length ? `${errors.length} draft ${errors.length === 1 ? "check" : "checks"} to review. ${esc(errors.slice(0, 3).join(" "))}${errors.length > 3 ? " …" : ""}` : "Basic draft checks passed."}<br>Forge performs final legality validation.</div><div class="section-label">Commander</div>${entryRows(commands)}<div class="section-label">Main deck</div><div class="deck-list">${entryRows(main)}</div><div class="section-label">Mana curve · nonlands</div><div class="curve">${bins.map((n, i) => `<div class="bar-wrap" title="${n} cards"><div>${n}</div><div class="bar" style="height:${Math.max(2, (n / max) * 48)}px"></div>${i === 7 ? "7+" : i}</div>`).join("")}</div></div></div><div class="panel" style="margin-top:18px"><div class="panel-head"><h2>Card preview</h2></div><div class="panel-body">${selected ? `<div class="preview"><div class="eyebrow">${esc(selected.mana || "No mana cost")}</div><h3>${esc(selected.name)}</h3><p>${esc(selected.text || "No rules text.")}</p><div class="type">${esc(selected.type)} ${esc(selected.pt || selected.loyalty)}</div></div><div class="toolbar" style="margin-top:12px"><button class="button small" data-add="${esc(selected.name)}">Add to deck</button><button class="button small" data-command="${esc(selected.name)}">Set as commander</button></div>` : '<div class="empty">Select a card to see its details.</div>'}</div></div></aside></div>`,
+    `<div class="title-row"><div><div class="eyebrow">Deck builder / ${total(d)} cards</div><h1>${esc(d.name)}</h1><p>Make changes freely. Your deck saves as you go.</p></div><div class="toolbar"><button class="button" data-action="deck-menu">Deck options</button><button class="button primary" data-action="test-draw">Test draw</button></div></div><div class="grid"><div><div class="panel"><div class="panel-head"><div><h2>Card catalogue</h2><span class="subtle">${cards.length.toLocaleString()} cards to explore</span></div></div><div class="panel-body"><div class="searchbar"><input id="search" type="search" placeholder="Search name or rules text" value="${esc(state.query)}" aria-label="Search card name or rules text"></div><div class="filters"><select id="color" aria-label="Color identity"><option value="">Any color identity</option>${["C", ...Array.from({ length: 31 }, (_, i) => [..."WUBRG"].filter((_, bit) => (i + 1) & (1 << bit)).join(""))].map((x) => `<option ${state.color === x ? "selected" : ""} value="${x}">${x === "C" ? "Colorless" : x === "WUBRG" ? "All colors" : x + " or colorless"}</option>`).join("")}</select><select id="type" aria-label="Card type"><option value="">Any type</option>${["Creature", "Land", "Instant", "Sorcery", "Artifact", "Enchantment", "Planeswalker", "Battle"].map((x) => `<option ${state.type === x ? "selected" : ""}>${x}</option>`).join("")}</select><select id="mv" aria-label="Mana value"><option value="">Any mana value</option>${["0", "1", "2", "3", "4", "5", "6", "7+"].map((x) => `<option ${state.mv === x ? "selected" : ""}>${x}</option>`).join("")}</select></div><div class="subtle">${filtered.length.toLocaleString()} results ${filtered.length > showing.length ? `· showing ${showing.length}` : ""}</div><div class="result-list">${showing.map((c) => `<div class="card-row"><div class="card-info"><button class="card-name" data-preview="${esc(c.name)}">${esc(c.name)}</button><div class="card-type">${esc(c.type)}</div></div><span class="mana">${esc(c.mana)}</span><button class="button small" data-add="${esc(c.name)}" aria-label="Add ${esc(c.name)} to deck">＋</button></div>`).join("") || '<div class="empty">No cards match these filters.</div>'}${filtered.length > showing.length ? '<button class="button" data-action="more">Show more</button>' : ""}</div></div></div></div><aside><div class="panel"><div class="panel-head"><h2>Deck overview</h2><span class="subtle">${total(d)} / 100</span></div><div class="panel-body"><div class="stat-grid"><div class="stat"><b>${total(d)}</b><span>Cards</span></div><div class="stat"><b>${main.filter((e) => /land/i.test(card(e.name)?.type || "")).reduce((n, e) => n + e.quantity, 0)}</b><span>Lands</span></div><div class="stat"><b>${commands.length}</b><span>Commanders</span></div></div><div class="notice ${errors.length ? "" : "good"}">${errors.length ? `${errors.length} draft ${errors.length === 1 ? "check" : "checks"} to review. ${esc(errors.slice(0, 3).join(" "))}${errors.length > 3 ? " …" : ""}` : "Basic draft checks passed."}<br>Forge performs final legality validation.</div><div class="section-label">Commander</div>${entryRows(commands)}<div class="section-label">Main deck</div><div class="deck-list">${entryRows(main)}</div><div class="section-label">Mana curve · nonlands</div><div class="curve">${bins.map((n, i) => `<div class="bar-wrap" title="${n} cards"><div>${n}</div><div class="bar" style="height:${Math.max(2, (n / max) * 48)}px"></div>${i === 7 ? "7+" : i}</div>`).join("")}</div></div></div><div class="panel" style="margin-top:18px"><div class="panel-head"><h2>Card preview</h2></div><div class="panel-body">${selected ? `<div class="preview">${artwork(selected.name, "builder-art")}<div class="eyebrow">${esc(selected.mana || "No mana cost")}</div><h3>${esc(selected.name)}</h3><p>${esc(selected.text || "No rules text.")}</p><div class="type">${esc(selected.type)} ${esc(selected.pt || selected.loyalty)}</div></div><div class="toolbar" style="margin-top:12px"><button class="button small" data-add="${esc(selected.name)}">Add to deck</button><button class="button small" data-command="${esc(selected.name)}">Set as commander</button></div>` : '<div class="empty">Select a card to see its details.</div>'}</div></div></aside></div>`,
   );
 }
 function entryRows(entries) {
@@ -295,6 +299,10 @@ function play() {
     ? `<div class="panel"><div class="panel-head"><h2>${desktopClient() ? "Host a match" : "Start a match"}</h2><span class="subtle">${desktopClient() ? "Forge runs on your computer" : "Hosted by Forge"}</span></div><div class="panel-body"><div class="field"><label for="match-mode">OPPONENT</label><select id="match-mode"><option value="cpu" ${state.mode === "cpu" ? "selected" : ""}>Forge CPU</option><option value="human" ${state.mode === "human" ? "selected" : ""}>A friend</option></select></div><div class="split"><div class="field"><label for="human-deck">YOUR DECK</label><select id="human-deck">${deckOptions()}</select></div><div class="field"><label for="ai-deck">OPPONENT DECK</label><select id="ai-deck">${deckOptions()}</select></div></div><button class="button primary" data-action="start" ${state.decks.length ? "" : "disabled"}>Start match</button> <span class="subtle">Forge validates both decks before play.</span></div></div>`
     : `<div class="notice">Your guest session cannot create matches. Open a new invitation from your friend to play again.</div>`;
   const lobby = s?.status === "waiting" ? `<section class="panel lobby" aria-live="polite"><h2>Waiting for your friend</h2><p>Your seat is reserved. The game starts when your friend joins.</p>${state.session.seat === 0 ? `<button class="button primary" data-action="invite">${desktopClient() ? "Show invitation" : state.inviteUrl ? "Replace invitation" : "Generate invitation"}</button>${state.inviteUrl ? `<div class="field"><label for="invite-url">ONE-USE INVITATION</label><input id="invite-url" readonly value="${esc(state.inviteUrl)}"></div><button class="button" data-action="copy-invite">Copy invitation</button><p class="subtle">Keep this link private. ${desktopClient() ? "Your friend pastes this invitation into their installed NeoForge client. Keep your app running." : "A replacement invalidates the previous invitation."}</p>` : ""}` : ""}</section>` : "";
+  if (s && ["starting", "playing", "finished", "error"].includes(s.status) && state.connected) {
+    shell(matchView(s));
+    return;
+  }
   shell(`<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>${desktopClient() ? "Play locally against the CPU, or host a game for a friend. Keep the host app running during online play." : "A real game powered by Forge on the server."}</p></div>${state.connected && !s?.result && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${desktopClient() && state.connected && !state.session.hasMatch ? '<button class="button" data-action="join-friend">Join a friend</button>' : ""}${desktopClient() && !state.session.relayConfigured && !state.session.hasMatch ? '<p class="subtle">No relay is set for hosting online games. Open Client info to save one, play the CPU, or paste a friend’s invitation to join.</p>' : ""}${entry}${lobby}${s && s.status !== "idle" && s.status !== "waiting" && state.connected ? matchView(s) : ""}`);
 }
 function deckOptions() {
@@ -320,18 +328,67 @@ function resultView(s) {
   const outcomes = { won: "Won", lost: "Lost", draw: "Draw" };
   return `<section class="game-result" role="status"><div class="eyebrow">Game complete · ${esc(result.turns)} turns</div><h2>${heading}</h2><ul>${result.participants.map((participant) => `<li><strong>${esc(participant.name)}</strong><span>${outcomes[participant.outcome] || "Game ended"}${participant.lossReason ? " · " + (reasons[participant.lossReason] || "Game ended") : ""}</span></li>`).join("")}</ul></section>`;
 }
+function viewerSeat(s) {
+  const index = s?.players?.findIndex((player) => player.id === s.viewerPlayerId) ?? -1;
+  return index >= 0 ? index : state.session.seat ?? 0;
+}
+function visibleCards(s = state.snapshot) {
+  return (s?.players || []).flatMap((p, index) => [...(index === viewerSeat(s) ? p.hand || [] : []), ...(p.battlefield || []), ...(p.command || []), ...(p.graveyard || []), ...(p.exile || [])]);
+}
+function presentation(c) {
+  const printed = card(c.name);
+  const hidden = /^face.down card$/i.test(c.name || "");
+  return { ...c, type: c.type || printed?.type || "", mana: c.mana || printed?.mana || "", text: c.text || printed?.text || "", hidden, artHidden: c.faceDown === true || hidden };
+}
+function tableCard(c, interactive) {
+  const p = presentation(c);
+  const actionControl = interactive ? `button class="game-card card-face" data-card="${esc(c.id)}" ${state.busy ? "disabled" : ""}` : 'div class="game-card card-face"';
+  const counters = c.counters && typeof c.counters === "object" ? Object.entries(c.counters).filter(([, value]) => Number.isFinite(value) && value > 0).map(([name, value]) => `${name} ${value}`).join(" · ") : typeof c.counters === "string" ? c.counters : "";
+  return `<article class="table-card ${c.tapped ? "is-tapped" : ""}" data-visible-card="${esc(c.id)}"><${actionControl} aria-label="${esc(c.name)}${c.tapped ? ", tapped" : ""}">${artwork(p.artHidden ? "Face-down card" : c.artName || c.name)}<span class="card-caption">${esc(c.name)}</span>${c.pt ? `<span class="card-stats">${esc(c.pt)}</span>` : ""}</${interactive ? "button" : "div"}><button class="card-inspect" data-inspect="${esc(c.id)}" aria-label="Inspect ${esc(c.name)}" title="Inspect card">↗</button>${c.tapped || c.attacking || c.blocking ? `<span class="card-state">${c.attacking ? "Attacking" : c.blocking ? "Blocking" : "Tapped"}</span>` : ""}${counters ? `<span class="card-counter">${esc(counters)}</span>` : ""}</article>`;
+}
+function zone(name, list = [], interactive = true, extra = "") {
+  return `<section class="zone ${extra}" data-table-zone="${esc(name)}"><h3>${name}<span>${list.length}</span></h3><div class="zone-cards">${list.map((c) => tableCard(c, interactive)).join("") || '<span class="zone-empty">No cards</span>'}</div></section>`;
+}
+function playerHeader(p, local, s, interactive) {
+  const turn = s.activePlayerId === p.id;
+  return `<header class="seat-header ${turn ? "has-turn" : ""}"><div class="seat-avatar" aria-hidden="true">${local ? "N" : "◇"}</div><div class="seat-identity"><div class="eyebrow">${local ? "Your seat" : "Opponent"}${turn ? " · Active player" : ""}</div><h2>${interactive ? `<button class="player-target" data-player="${esc(p.id)}" aria-label="Select player ${esc(p.name)}">${esc(p.name)}</button>` : esc(p.name)}</h2></div><div class="seat-counts"><span title="Cards in hand">Hand <b>${esc(p.handCount ?? 0)}</b></span><span title="Cards in library">Library <b>${esc(p.libraryCount ?? 0)}</b></span></div><div class="life" aria-label="${esc(p.name)} life ${esc(p.life)}">${esc(p.life)}<small>life</small></div></header>`;
+}
+function playerField(p, local, s, interactive) {
+  const permanents = p.battlefield || [];
+  const lands = permanents.filter((c) => /\bland\b/i.test(c.type || card(c.name)?.type || ""));
+  const others = permanents.filter((c) => !lands.includes(c));
+  const backs = !local ? `<div class="opponent-hand" aria-label="Opponent hand, ${esc(p.handCount ?? 0)} hidden cards">${Array.from({ length: Math.min(12, Math.max(0, Number(p.handCount) || 0)) }, () => '<span class="card-back" aria-hidden="true"><span>N</span></span>').join("")}${p.handCount > 12 ? `<span class="hidden-hand-count">+${p.handCount - 12}</span>` : ""}</div>` : "";
+  return `<section class="player-field ${local ? "local-field" : "opponent-field"}" data-table-player="${esc(p.id)}" aria-label="${local ? "Your" : "Opponent"} battlefield">${playerHeader(p, local, s, interactive)}${backs}<div class="seat-zones"><div class="battlefield-lanes">${zone("Battlefield", others, interactive, "permanent-lane")}${zone("Lands", lands, interactive, "land-lane")}</div><aside class="side-zones">${zone("Command", p.command, interactive, "command-zone")}<details class="zone-pocket" data-table-details="${esc(p.id)}:graveyard"><summary>Graveyard <b>${p.graveyard?.length || 0}</b></summary>${zone("Graveyard", p.graveyard, interactive)}</details><details class="zone-pocket" data-table-details="${esc(p.id)}:exile"><summary>Exile <b>${p.exile?.length || 0}</b></summary>${zone("Exile", p.exile, interactive)}</details></aside></div></section>`;
+}
+function inspectionView() {
+  const inspected = visibleCards().find((c) => c.id === state.inspectedCard);
+  if (!inspected) return '<div class="inspection-empty"><span aria-hidden="true">↗</span><h3>Look closer</h3><p>Hover or focus a card to inspect it. On touch, use its arrow button.</p><p class="subtle">Click a card itself to send it to the current Forge prompt.</p></div>';
+  const p = presentation(inspected);
+  return `<div class="inspected-card">${artwork(p.artHidden ? "Face-down card" : p.artName || p.name, "inspection-art")}<div class="inspection-copy"><h3>${esc(p.name)}</h3><p class="inspection-type">${esc(p.type)}</p><div class="inspection-mana">${esc(p.mana)}</div><p class="oracle-text">${esc(p.hidden ? "This card is hidden. Its identity and rules text are not available." : p.text || "No rules text available.")}</p>${p.tapped ? '<span class="inspection-tag">Tapped</span>' : ""}</div></div>`;
+}
+function inspectCard(id) {
+  if (state.inspectedCard === id || !visibleCards().some((c) => c.id === id)) return;
+  state.inspectedCard = id;
+  const panel = app.querySelector("#card-inspection");
+  if (panel) { panel.innerHTML = inspectionView(); hydrateArt(panel); }
+}
+function updateArtNotice() {
+  const notice = app.querySelector("#art-status");
+  if (notice) notice.textContent = artStatus();
+  const retry = app.querySelector('[data-action="retry-art"]');
+  if (retry) retry.hidden = !app.querySelector('.game-table [data-art-state="unavailable"]');
+}
 function matchView(s) {
   const interactive = s.status === "playing" && !s.result;
-  const viewerIndex = s.players?.findIndex((player) => player.id === s.viewerPlayerId) ?? -1;
-  const seat = viewerIndex >= 0 ? viewerIndex : state.session.seat ?? 0;
-  const players = (s.players || []).map((player, index) => ({ player, index })).sort((a, b) => (b.index === seat) - (a.index === seat));
-  return `<div class="panel" style="margin-top:22px"><div class="panel-head"><div><div class="eyebrow">${esc(s.status)} · Turn ${esc(s.turn ?? "—")}</div><h2>${esc(s.phase || "Waiting for game")}</h2></div><span class="subtle">${esc(s.error || "")}</span></div><div class="panel-body">${resultView(s)}${interactive && s.prompt ? promptView(s.prompt) : ""}<div class="split">${players.map(({ player: p, index: i }) => `<section><div class="game-header"><h2 class="section-title">${interactive ? `<button class="card-name" data-player="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name)} <span class="subtle">${i === seat ? "Your seat" : "Opponent"}</span></h2><div class="life">${esc(p.life)} <small>life</small></div></div><p class="subtle">Hand ${esc(p.handCount)} · Library ${esc(p.libraryCount)}</p>${i === seat && p.hand ? zone("Your hand", p.hand, interactive) : ""}${zone("Battlefield", p.battlefield, interactive)}${zone("Command", p.command, interactive)}${zone("Graveyard", p.graveyard, interactive)}${zone("Exile", p.exile, interactive)}</section>`).join("")}</div>${zone(
-    "Stack",
-    (s.stack || []).map((x) => ({ ...x, name: x.label })), interactive,
-  )}${s.log?.length ? `<div class="section-label">Game log</div><p class="subtle">${s.log.slice(-8).map(esc).join("<br>")}</p>` : ""}</div></div>`;
-}
-function zone(name, list = [], interactive = true) {
-  return `<div class="zone"><h3>${name} · ${list.length}</h3><div class="zone-cards">${list.map((c) => `<${interactive ? `button class="game-card" data-card="${esc(c.id)}"` : 'div class="game-card"'}>${esc(c.name)}<span>${esc([c.mana, c.type, c.pt, c.tapped ? "Tapped" : "", c.counters].filter(Boolean).join(" · "))}</span></${interactive ? "button" : "div"}>`).join("") || '<span class="subtle">Empty</span>'}</div></div>`;
+  const seat = viewerSeat(s);
+  const local = s.players?.[seat];
+  const opponents = (s.players || []).filter((_, index) => index !== seat);
+  const phases = { UNTAP: "Untap", UPKEEP: "Upkeep", DRAW: "Draw", MAIN1: "First main", COMBAT_BEGIN: "Begin combat", COMBAT_DECLARE_ATTACKERS: "Attackers", COMBAT_DECLARE_BLOCKERS: "Blockers", COMBAT_FIRST_STRIKE_DAMAGE: "First strike", COMBAT_DAMAGE: "Combat damage", COMBAT_END: "End combat", MAIN2: "Second main", END_OF_TURN: "End step", CLEANUP: "Cleanup" };
+  const phase = phases[s.phase] || String(s.phase || "Setting up").replaceAll("_", " ");
+  const activeName = s.players?.find((p) => p.id === s.activePlayerId)?.name;
+  const prompt = interactive && s.prompt ? promptView(s.prompt) : `<div class="prompt waiting-prompt"><span class="priority-light"></span><h3>${s.status === "starting" ? "Preparing your game" : s.result ? "Game complete" : s.status === "error" ? "Game stopped" : activeName && s.activePlayerId !== local?.id ? `${esc(activeName)} is thinking` : "Waiting for Forge"}</h3><p>${s.status === "starting" ? "Loading decks and starting the engine. Your opening hand will appear here." : s.status === "error" ? esc(s.error || "The engine could not continue.") : s.result ? "The final board is available to inspect." : "The next decision appears here. No action is required right now."}</p></div>`;
+  const stack = (s.stack || []).map((item) => `<${interactive ? `button class="stack-item" data-card="${esc(item.id)}"` : 'div class="stack-item"'}>${esc(item.label || item.name)}</${interactive ? "button" : "div"}>`).join("");
+  return `<section class="game-table" data-match-status="${esc(s.status)}" aria-label="Commander game table"><header class="table-toolbar"><div><span class="eyebrow">Commander · ${s.status === "starting" ? "Starting" : "Turn " + esc(s.turn ?? 0)}</span><h1>${esc(phase)}</h1></div><div class="turn-indicator">${activeName ? `${s.activePlayerId === local?.id ? "Your turn" : `${esc(activeName)}'s turn`}` : "Setting up the table"}</div><div class="table-tools"><span id="art-status" class="art-status">Card images · Scryfall</span><button class="button small" data-action="retry-art" hidden>Retry images</button>${interactive ? '<button class="button small danger" data-action="concede">Concede</button>' : ""}</div></header>${s.error ? `<div class="notice" role="alert">${esc(s.error)}</div>` : ""}${resultView(s)}<div class="table-layout"><div class="battle-mat">${opponents.map((p) => playerField(p, false, s, interactive)).join("")}${local ? playerField(local, true, s, interactive) : '<div class="table-starting"><div class="table-emblem" aria-hidden="true">N</div><h2>Preparing the table</h2><p>Forge is loading the match. No cards have been dealt yet.</p></div>'}${local ? zone("Your hand", local.hand || [], interactive, "hand-zone") : ""}</div><aside class="table-rail"><section class="decision-dock" aria-label="Current decision">${prompt}</section><section class="card-inspection" aria-label="Card inspection" id="card-inspection">${inspectionView()}</section><details class="stack-panel" data-table-details="stack" ${s.stack?.length ? "open" : ""}><summary>Stack <b>${s.stack?.length || 0}</b></summary><div class="stack-list">${stack || '<p class="subtle">Nothing on the stack.</p>'}</div></details><details class="game-log" data-table-details="log"><summary>Game log</summary><ol>${(s.log || []).slice(-15).map((line) => `<li>${esc(line)}</li>`).join("") || '<li>No events yet.</li>'}</ol></details></aside></div></section>`;
 }
 function promptView(p) {
   if (p.kind === "reveal") return `<div class="prompt"><h3>${esc(p.message)}</h3><ul class="revealed-items">${p.items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul><button class="button primary" data-prompt-button="ok">Continue</button></div>`;
@@ -404,16 +461,25 @@ function updateAllocationFeedback() {
   document.querySelector("#allocation-error").textContent = issue;
   document.querySelector('#allocation-form button[type="submit"]').disabled = !!issue;
 }
+function tableScrollKey(node) {
+  return `${node.closest("[data-table-player]")?.dataset.tablePlayer || "table"}:${node.closest("[data-table-zone]")?.dataset.tableZone || ""}:${node.classList.contains("zone-cards") ? "cards" : "zone"}`;
+}
 function render() {
+  const tableView = {
+    details: new Map([...app.querySelectorAll("[data-table-details]")].map((node) => [node.dataset.tableDetails, node.open])),
+    scroll: new Map([...app.querySelectorAll(".game-table .zone, .game-table .zone-cards")].map((node) => [tableScrollKey(node), [node.scrollLeft, node.scrollTop]])),
+  };
   const active = document.activeElement;
-  const editor = active?.closest("form.prompt");
-  const ownsEditor = editor?.dataset.promptId === state.snapshot?.prompt?.id && editor?.dataset.matchId === state.snapshot?.matchId;
+  const promptEditor = active?.closest("form.prompt");
+  const ownsEditor = promptEditor?.dataset.promptId === state.snapshot?.prompt?.id && promptEditor?.dataset.matchId === state.snapshot?.matchId;
   if (state.composing && ownsEditor && state.view === "play") {
     state.deferredRender = true;
     return;
   }
   state.composing = false;
   state.deferredRender = false;
+  const focusedCard = active?.dataset.card;
+  const focusedInspection = active?.dataset.inspect;
   const focusedAllocation = active?.dataset.allocation;
   const focusedControl = ownsEditor ? active?.dataset.promptControl : null;
   const selection = active?.tagName === "INPUT" && active.type === "text"
@@ -421,6 +487,17 @@ function render() {
   if (state.view === "library") library();
   else if (state.view === "editor") editor();
   else play();
+  for (const node of app.querySelectorAll("[data-table-details]")) {
+    if (tableView.details.has(node.dataset.tableDetails)) node.open = tableView.details.get(node.dataset.tableDetails);
+  }
+  for (const node of app.querySelectorAll(".game-table .zone, .game-table .zone-cards")) {
+    const position = tableView.scroll.get(tableScrollKey(node));
+    if (position) [node.scrollLeft, node.scrollTop] = position;
+  }
+  if (focusedCard) [...app.querySelectorAll("[data-card]")].find((node) => node.dataset.card === focusedCard)?.focus({ preventScroll: true });
+  if (focusedInspection) [...app.querySelectorAll("[data-inspect]")].find((node) => node.dataset.inspect === focusedInspection)?.focus({ preventScroll: true });
+  hydrateArt(app);
+  updateArtNotice();
   if (focusedAllocation)
     [...app.querySelectorAll("[data-allocation]")]
       .find((input) => input.dataset.allocation === focusedAllocation)?.focus();
@@ -519,6 +596,8 @@ async function action(kind, extra = {}) {
   const s = state.snapshot;
   const ownsPrompt = () => state.snapshot?.matchId === s.matchId && state.snapshot?.prompt?.id === s.prompt?.id;
   state.busy = true;
+  app.querySelector(".decision-dock")?.setAttribute("aria-busy", "true");
+  app.querySelectorAll("[data-card]").forEach((button) => { button.disabled = true; });
   try {
     let result = await api("action", {
       method: "POST",
@@ -559,6 +638,8 @@ async function action(kind, extra = {}) {
     } else toast(`Action failed: ${e.message}`);
   } finally {
     state.busy = false;
+    app.querySelector(".decision-dock")?.setAttribute("aria-busy", "false");
+    app.querySelectorAll("[data-card]").forEach((button) => { button.disabled = false; });
   }
 }
 function importModal() {
@@ -638,10 +719,24 @@ function exportDeck(d) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 let importDraft;
+app.addEventListener("toggle", (event) => {
+  if (event.target.matches("details[open]")) hydrateArt(event.target);
+}, true);
+app.addEventListener("pointerover", (event) => {
+  const target = event.target.closest("[data-visible-card]");
+  if (target) inspectCard(target.dataset.visibleCard);
+});
+app.addEventListener("focusin", (event) => {
+  const target = event.target.closest("[data-visible-card]");
+  if (target) inspectCard(target.dataset.visibleCard);
+});
+document.addEventListener("card-art-status", updateArtNotice);
 app.addEventListener("click", async (e) => {
   let b = e.target.closest("button");
   if (!b) return;
   let ds = b.dataset;
+  if (ds.inspect) { inspectCard(ds.inspect); return; }
+  if (ds.action === "retry-art") { retryArt(); return; }
   if (ds.nav) {
     state.view = ds.nav;
     render();

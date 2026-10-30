@@ -1,3 +1,4 @@
+import os
 import copy
 import functools
 import http.server
@@ -39,8 +40,10 @@ def api(route):
     if request.method == "OPTIONS":
         route.fulfill(status=204, headers=headers)
         return
-    if path == "status":
-        data = {"schemaVersion": 1, "status": "ready"}
+    if path == "session":
+        data = {"schemaVersion": 1, "authenticated": True, "canCreate": True, "seat": 0, "hasMatch": True, "transport": "desktop"}
+    elif path == "library":
+        data = {"schemaVersion": 1, "exists": True, "decks": []}
     elif path == "action":
         if reject_stale:
             reject_stale = False
@@ -58,16 +61,14 @@ def api(route):
 
 try:
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(executable_path="/usr/bin/chromium", headless=True, args=["--no-sandbox"])
+        browser = playwright.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH", "/usr/bin/chromium"), headless=True, args=["--no-sandbox"])
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.route("**/data/cards.json", lambda route: route.fulfill(json=[]))
         page.route("**/api/v1/**", api)
+        page.route("https://api.scryfall.com/**", lambda route: route.fulfill(status=404, json={"object": "error"}))
         page.goto(origin)
-        page.locator('[data-action="connect"]').click()
-        page.locator("#host-token").fill("test-token")
-        page.locator('[data-action="pair"]').click()
         page.locator('[data-nav="play"]').click()
         inputs = page.locator('[name="allocation"]')
         expect(inputs).to_have_count(3)

@@ -59,12 +59,12 @@ for path in sorted((source / 'cardsfolder').rglob('*.txt')):
                   'commander': ('Legendary' in face['type'] and any(t in face['type'] for t in ['Creature', 'Vehicle', 'Spacecraft'])) or 'can be your commander' in raw.lower()})
 by_name = {card['name']: card for card in cards}
 cards = sorted(by_name.values(), key=lambda card: card['name'].casefold())
-(output / 'cards.json').write_text(json.dumps(cards, ensure_ascii=False, separators=(',', ':')))
+(output / 'cards.json').write_text(json.dumps(cards, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
 precons = []
 for name, filename, subtitle, colors in [
     ('World Shaper', 'World Shaper [EOC] [2025].dck', 'Sacrifice lands. Grow something bigger.', 'BRG'),
     ('Multiverse Reforged', 'Multiverse Reforged [FRC] [2026].dck', 'Rewrite the board with Jace.', 'WUBR')]:
-    text = (source / 'quest/commanderprecons' / filename).read_text()
+    text = (source / 'quest/commanderprecons' / filename).read_text(encoding='utf-8-sig')
     section = ''
     entries = []
     for line in text.splitlines():
@@ -76,10 +76,10 @@ for name, filename, subtitle, colors in [
                 entries.append({'name': match[2], 'quantity': int(match[1]), 'section': section})
     precons.append({'id': name.lower().replace(' ', '-'), 'name': name, 'subtitle': subtitle,
                     'colors': colors, 'entries': entries, 'source': filename})
-(output / 'precons.json').write_text(json.dumps(precons, ensure_ascii=False, separators=(',', ':')))
+(output / 'precons.json').write_text(json.dumps(precons, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
 (output / 'provenance.json').write_text(json.dumps({'engineCommit': engine_commit, 'catalogueCount': len(cards),
     'catalogueSha256': hashlib.sha256((output / 'cards.json').read_bytes()).hexdigest(),
     'source': 'Card-Forge/forge card scripts and stock Commander precons',
-    'notice': 'Magic: The Gathering is a trademark of Wizards of the Coast. This fan project is not affiliated with Wizards.'}, indent=2) + '\n')
+    'notice': 'Magic: The Gathering is a trademark of Wizards of the Coast. This fan project is not affiliated with Wizards.'}, indent=2) + '\n', encoding='utf-8')
 print(json.dumps({'cards': len(cards), 'precons': [{'name': d['name'], 'count': sum(e['quantity'] for e in d['entries']),
     'unknown': [e['name'] for e in d['entries'] if e['name'] not in by_name]} for d in precons]}))

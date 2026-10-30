@@ -1,0 +1,21 @@
+services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: tools/hosted-engine/Dockerfile
+      args:
+        SOURCE_REVISION: ${SOURCE_REVISION:?Set SOURCE_REVISION to git rev-parse HEAD}
+    environment:
+      NEOFORGE_ORIGIN: ${NEOFORGE_ORIGIN:?Set the public HTTPS origin}
+      NEOFORGE_ACCESS_KEY: ${NEOFORGE_ACCESS_KEY:?Set a private access key}
+    # The provider TLS proxy forwards this loopback socket for NEOFORGE_ORIGIN.
+    ports:
+      - "127.0.0.1:8080:8080"
+    mem_limit: 4g
+    cpus: 2
+    pids_limit: 256
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    restart: unless-stopped

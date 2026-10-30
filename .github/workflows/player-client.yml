@@ -1,0 +1,76 @@
+name: Installed player client
+
+on:
+  workflow_dispatch:
+    inputs:
+      relay_origin:
+        description: Optional HTTPS relay origin
+        required: false
+        default: ''
+  pull_request:
+    paths:
+      - 'tools/player-client/**'
+      - 'tools/player-relay/**'
+      - 'forge-core/**'
+      - 'forge-game/**'
+      - 'forge-ai/**'
+      - 'forge-gui/**'
+      - 'forge-gui-desktop/**'
+      - 'pom.xml'
+      - '.mvn/**'
+      - 'LICENSE'
+      - 'tools/browser-bridge/**'
+      - 'web/neoforge/**'
+      - '.github/workflows/player-client.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Test packager
+        run: python -m unittest discover -s tools/player-client/tests -v
+      - name: Compile Forge and resolve exact runtime dependencies
+        shell: bash
+        run: |
+          mvn -B -pl forge-gui-desktop -am -DskipTests -Dcheckstyle.skip compile org.apache.maven.plugins:maven-dependency-plugin:3.1.2:build-classpath -DincludeScope=runtime -Dmdep.outputFile="$RUNNER_TEMP/player-runtime-classpath.txt"
+      - name: Generate catalogue provenance
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/catalog/tools"
+          cp web/neoforge/tools/generate-catalog.py "$RUNNER_TEMP/catalog/tools/generate-catalog.py"
+          python "$RUNNER_TEMP/catalog/tools/generate-catalog.py" --forge-root .
+      - name: Build native application and archive
+        env:
+          RELAY_ORIGIN: ${{ inputs.relay_origin }}
+        shell: bash
+        run: |
+          python tools/player-client/package.py --classpath-file "$RUNNER_TEMP/player-runtime-classpath.txt" --output "$RUNNER_TEMP/player-client" --relay-origin "$RELAY_ORIGIN" --catalog-dir "$RUNNER_TEMP/catalog/dist/data"
+      - name: Smoke native launcher and Forge without build tools on PATH
+        shell: bash
+        run: python tools/player-client/tests/native-smoke.py --image "$RUNNER_TEMP/player-client/NeoForge"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: NeoForge-${{ runner.os }}
+          path: |
+            ${{ runner.temp }}/player-client/*.zip
+            ${{ runner.temp }}/player-client/*.tar.gz
+          if-no-files-found: error

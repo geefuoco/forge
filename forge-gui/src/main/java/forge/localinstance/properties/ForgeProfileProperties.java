@@ -156,6 +156,10 @@ public class ForgeProfileProperties {
 
     // returns a pair <userDir, cacheDir>
     private static Pair<String, String> getDefaultDirs() {
+        String playerProfile = System.getProperty("forge.player.profile");
+        if (playerProfile != null) {
+            return Pair.of(playerProfile + File.separator + "data", playerProfile + File.separator + "cache");
+        }
         if (!GuiBase.getInterface().isRunningOnDesktop()) { //special case for mobile devices
             // iOS: Main.java points these at the writable Documents sandbox; the
             // assets dir is the read-only app bundle, so deriving data/cache from

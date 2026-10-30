@@ -786,3 +786,10 @@ dialog::backdrop {
 .game-result li span {
   color: var(--muted);
 }
+.lobby {
+  margin-top: 22px;
+  padding: 22px;
+}
+.lobby .field {
+  margin-top: 18px;
+}

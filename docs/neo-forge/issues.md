@@ -31,3 +31,41 @@ Independent HTTP probes reproduced the same result with the exact bridge source 
 `MatchSession.submit` now validates an optional whole signed-long revision before either normal actions or concession can enqueue a command. Explicit null, non-numeric JSON values, fractions, and values outside the long range return a client error. Normal actions still require the current revision. Concession still permits an omitted revision.
 
 `RevisionTest` exercises the real HTTP server and a pending `ProtocolGuiGame` confirmation. It checks malformed revisions on normal and concession actions, unchanged pending decisions, valid retry, duplicate rejection, and concession without a revision. The regression failed before the fix with `Expected client error for null revision on ok, got HTTP 500`.
+
+## Card selection disappears when both buttons are disabled
+
+Status: fixed in the hosted input lifecycle change.
+
+A local real-engine browser probe stopped on turn 3 during cleanup. The game thread was waiting in `chooseCardsToDiscardToMaximumHandSize`, but the browser snapshot had no prompt. The hosted adapter had treated two disabled buttons as an inactive controller. Forge disables both buttons while the player must first select a card.
+
+The adapter now derives active priority input from the engine's `awaitInput` pump. It exposes the pending card-selection prompt while that pump waits, even when both buttons are disabled. It hides priority input and rejects answers after that pump ends. `HostedTest` covers selection visibility, inactive action rejection, and prompt cleanup. The natural-game probe is rerun through the hosted gateway.
+
+## Closed relay rooms consume admission capacity
+
+Status: fixed in the installed-client verification correction.
+
+Independent verification created and closed two rooms with `max_rooms=2`, then observed zero active rooms and a 503 on the third creation. Retired rooms still occupied the live registry. Closing now removes the live record and retains only a bounded, credential-free tombstone. The new HTTP regression repeats creation and closure beyond the configured capacity and checks that another room is admitted.
+
+## Installed Join dialog does not submit
+
+Status: fixed in the installed-client verification correction.
+
+The first packaged two-client probe opened the guest's Join dialog, but clicking Join did nothing. The handler was attached to the main application element, while the dialog is its sibling. The submission handler now belongs to the dialog's event listener. The packaged real-relay probe checks the complete Host and Join flow.
+
+## Native client CI cannot resolve Java setup action
+
+Status: fixed after the first native workflow attempt.
+
+The Windows and Linux jobs stopped in setup before compilation because the pinned `actions/setup-java` revision did not exist. The workflow now pins the verified commit referenced by the upstream v5 tag. The first failed run is https://github.com/geefuoco/forge/actions/runs/40782022228. Native Windows still requires a completed build and launcher check.
+
+## Windows catalogue generation uses the system code page
+
+Status: fixed after native Windows CI reached catalogue generation.
+
+Forge compiled on Windows, but writing `cards.json` failed with a CP1252 `UnicodeEncodeError` for U+014D. The generator now reads precon lists as UTF-8 and writes all three JSON outputs as UTF-8. A subprocess regression with an ASCII default locale reproduces the failure before the fix and preserves a macron in both catalogue and precon data after the fix. The failed native run is https://github.com/geefuoco/forge/actions/runs/40782419954.
+
+## Relay container inherits unreadable source permissions
+
+Status: fixed and checked in the actual non-root container.
+
+A local image built from the managed checkout could not open `server.py` because the source file had mode 0600 and Docker preserved it. The non-root image user could not read the root-owned file. `COPY --chmod=0444` now gives the runtime a deterministic read-only script. The rebuilt container passed health, room creation, guest join, role refusal, and close revocation under the documented resource limits without Java installed.

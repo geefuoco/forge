@@ -30,10 +30,16 @@ public final class Bridge {
     static final Gson JSON = new Gson();
     static final int LIMIT = 1_000_000;
     final String origin, token;
+    final boolean hosted;
     final HttpServer server;
     volatile MatchSession match;
 
     Bridge(String origin, int port) throws Exception {
+        this(origin, port, "1".equals(System.getenv("FORGE_BRIDGE_HOSTED")), System.getenv("FORGE_BRIDGE_WORKER_TOKEN"));
+    }
+
+    Bridge(String origin, int port, boolean hosted, String workerToken) throws Exception {
+        this.hosted = hosted;
         URI site = URI.create(origin);
         boolean localHttp = "http".equals(site.getScheme()) && site.getHost() != null && Set.of("localhost", "127.0.0.1", "::1", "[::1]").contains(site.getHost());
         if ((!"https".equals(site.getScheme()) && !localHttp) || site.getHost() == null || site.getUserInfo() != null ||
@@ -41,10 +47,13 @@ public final class Bridge {
             throw new IllegalArgumentException("Origin must be HTTPS, or HTTP on loopback, without a path");
         this.origin = origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin;
         byte[] bytes = new byte[32]; new SecureRandom().nextBytes(bytes);
-        token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        if (hosted && (workerToken == null || workerToken.length() < 32)) throw new IllegalArgumentException("Missing worker credential");
+        token = hosted ? workerToken : Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         server = HttpServer.create(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), port), 0);
         server.createContext("/api/v1/", this::handle);
-        server.setExecutor(Executors.newCachedThreadPool());
+        server.setExecutor(new ThreadPoolExecutor(2, 8, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(64), runnable -> {
+            Thread thread = new Thread(runnable, "forge-worker-http"); thread.setDaemon(true); return thread;
+        }, new ThreadPoolExecutor.AbortPolicy()));
     }
 
     void handle(HttpExchange x) throws IOException {
@@ -57,23 +66,34 @@ public final class Bridge {
             h.set("Access-Control-Allow-Origin", origin); h.set("Vary", "Origin");
             h.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
             h.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            h.set("Access-Control-Allow-Private-Network", "true");
+            if (!hosted) h.set("Access-Control-Allow-Private-Network", "true");
             h.set("Cache-Control", "no-store");
             if (x.getRequestMethod().equals("OPTIONS")) { x.sendResponseHeaders(204, -1); return; }
             String auth = x.getRequestHeaders().getFirst("Authorization");
             if (auth == null || !MessageDigest.isEqual(("Bearer " + token).getBytes(StandardCharsets.UTF_8), auth.getBytes(StandardCharsets.UTF_8))) {
                 reply(x, 401, error("Pairing token rejected")); return;
             }
+            int seat = 0;
+            if (hosted) {
+                String seatHeader = x.getRequestHeaders().getFirst("X-Forge-Seat");
+                if (!"0".equals(seatHeader) && !"1".equals(seatHeader)) { reply(x, 403, error("Seat rejected")); return; }
+                seat = Integer.parseInt(seatHeader);
+            }
             String path = x.getRequestURI().getPath(), method = x.getRequestMethod();
+            if (method.equals("POST") && !"application/json".equalsIgnoreCase(x.getRequestHeaders().getFirst("Content-Type"))) {
+                reply(x, 415, error("Expected application/json")); return;
+            }
             if (method.equals("GET") && path.equals("/api/v1/status")) {
                 reply(x, 200, map("schemaVersion", 1, "status", "ready", "engine", "Forge", "engineVersion", BuildInfo.getVersionString()));
             } else if (method.equals("GET") && path.equals("/api/v1/match")) {
                 MatchSession current = match;
-                replyRaw(x, 200, current == null ? JSON.toJson(map("schemaVersion", 1, "status", "idle", "revision", 0, "players", List.of(), "stack", List.of())) : current.snapshot);
+                if (current != null && current.seat(seat) == null) { reply(x, 403, error("Seat rejected")); return; }
+                replyRaw(x, 200, current == null ? JSON.toJson(map("schemaVersion", 1, "status", "idle", "revision", 0, "players", List.of(), "stack", List.of())) : current.seat(seat).snapshot);
             } else if (method.equals("POST") && path.equals("/api/v1/matches")) {
+                if (seat != 0) { reply(x, 403, error("Only seat zero creates a match")); return; }
                 JsonObject body = body(x);
                 synchronized (this) {
-                    if (match != null && !match.terminal()) { reply(x, 409, error("A match is already active")); return; }
+                    if (match != null && (hosted || !match.terminal())) { reply(x, 409, error("A match is already active")); return; }
                     match = new MatchSession(body);
                     new Thread(match::start, "forge-bridge-start").start();
                 }
@@ -81,7 +101,9 @@ public final class Bridge {
             } else if (method.equals("POST") && path.equals("/api/v1/action")) {
                 MatchSession current = match;
                 if (current == null) { reply(x, 409, error("No active match")); return; }
-                String problem = current.submit(body(x));
+                SeatView viewer = current.seat(seat);
+                if (viewer == null) { reply(x, 403, error("Seat rejected")); return; }
+                String problem = viewer.submit(body(x));
                 reply(x, problem == null ? 202 : 409, problem == null ? map("schemaVersion", 1, "accepted", true) : error(problem));
             } else reply(x, 404, error("Unknown endpoint"));
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -131,6 +153,9 @@ public final class Bridge {
         return deck;
     }
     static final class InlineGui extends GuiDesktop {
+        @Override public String getAssetsDir() {
+            return System.getProperty("forge.player.assets", super.getAssetsDir());
+        }
         @Override public void invokeInEdtNow(Runnable r) { r.run(); }
         @Override public void invokeInEdtLater(Runnable r) { r.run(); }
         @Override public void invokeInEdtAndWait(Runnable r) { r.run(); }
@@ -258,10 +283,23 @@ public final class Bridge {
                     outcome.getLastTurnNumber(), List.copyOf(participants));
         }
     }
-    static final class MatchSession implements IRemote {
-        final String id = UUID.randomUUID().toString();
+    static final class MatchSession extends SeatView {
+        final List<SeatView> seats;
+        final BlockingQueue<SeatView> concessions = new LinkedBlockingQueue<>(2);
+        MatchSession(JsonObject request) {
+            super(request, null, 0);
+            String mode = request.has("mode") ? string(request, "mode") : "cpu";
+            if (!Set.of("cpu", "human").contains(mode)) throw new IllegalArgumentException("Unknown mode");
+            seats = mode.equals("human") ? List.of(this, new SeatView(request, this, 1)) : List.of(this);
+        }
+        SeatView seat(int number) { return number >= 0 && number < seats.size() ? seats.get(number) : null; }
+    }
+    static class SeatView implements IRemote {
+        final String id;
+        final MatchSession owner;
+        final int seatNumber;
         final JsonObject request;
-        final BlockingQueue<JsonObject> commands = new LinkedBlockingQueue<>();
+        final BlockingQueue<JsonObject> commands = new LinkedBlockingQueue<>(8);
         final Map<String,CardView> cards = new HashMap<>();
         final Map<String,PlayerView> players = new HashMap<>();
         final Map<String,Object> choices = new LinkedHashMap<>();
@@ -278,7 +316,13 @@ public final class Bridge {
         PumpGui gui;
         long revision;
         boolean inFlight;
-        MatchSession(JsonObject request) { this.request = request; publish(); }
+        boolean priorityActive;
+        SeatView(JsonObject request, MatchSession owner, int seatNumber) {
+            this.request = request; this.owner = owner; this.seatNumber = seatNumber;
+            this.id = owner == null ? UUID.randomUUID().toString() : owner.id;
+            publish();
+        }
+        MatchSession matchOwner() { return owner == null ? (MatchSession)this : owner; }
         synchronized boolean terminal() { return status.equals("finished") || status.equals("error"); }
         synchronized String submit(JsonObject action) {
             if (terminal()) return "Match is over";
@@ -295,11 +339,18 @@ public final class Bridge {
             if (kind.equals("concede")) {
                 if (actionRevision != null && actionRevision != revision) return "Stale revision";
                 if (action.has("promptId") && !Objects.equals(promptId, string(action, "promptId"))) return "Stale prompt";
-                commands.offer(action.deepCopy());
+                if (inFlight) return "An action is already in flight";
+                if (gui == null || human == null) {
+                    if (!commands.offer(action.deepCopy())) return "An action is already in flight";
+                    inFlight = true; return null;
+                }
+                if (!matchOwner().concessions.offer(this)) return "An action is already in flight";
+                inFlight = true;
                 return null;
             }
             if (actionRevision == null || actionRevision != revision) return "Stale revision";
             if (promptId == null || !promptId.equals(string(action, "promptId"))) return "Stale prompt";
+            if ("priority".equals(promptKind) && !priorityActive) return "Stale prompt";
             if (inFlight) return "An action is already in flight";
             if (promptKind.equals("input") || promptKind.equals("manipulate")) {
                 try {
@@ -351,23 +402,33 @@ public final class Bridge {
                 FModel.getPreferences().setPref(FPref.UI_SHOW_ACTIONABLE_HIGHLIGHTS, false);
                 Deck h = deck(request.getAsJsonObject("humanDeck")), a = deck(request.getAsJsonObject("aiDeck"));
                 RegisteredPlayer hp = RegisteredPlayer.forCommander(h).setPlayer(new LobbyPlayerHuman("You"));
-                RegisteredPlayer ap = RegisteredPlayer.forCommander(a).setPlayer(GamePlayerUtil.createAiPlayer("CPU"));
+                RegisteredPlayer ap = RegisteredPlayer.forCommander(a).setPlayer(matchOwner().seats.size() == 2
+                        ? new LobbyPlayerHuman("Friend") : GamePlayerUtil.createAiPlayer("CPU"));
                 gui = new PumpGui(this);
                 GameRules rules = new GameRules(GameType.Commander);
                 rules.setGamesPerMatch(1);
                 rules.setWarnAboutAICards(false);
-                new HostedMatch().startMatch(rules, Set.of(GameType.Commander), List.of(hp, ap), hp, gui);
+                Map<RegisteredPlayer, forge.gui.interfaces.IGuiGame> guis = new LinkedHashMap<>();
+                guis.put(hp, gui);
+                if (matchOwner().seats.size() == 2) {
+                    SeatView guest = matchOwner().seat(1);
+                    guest.gui = new PumpGui(guest); guis.put(ap, guest.gui);
+                }
+                new HostedMatch().startMatch(rules, Set.of(GameType.Commander), List.of(hp, ap), guis, null);
             } catch (Throwable t) { fail(t); }
         }
-        synchronized void fail(Throwable t) {
-            status = "error"; error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
-            prompt = null; promptId = null; input = null; manipulation = null; inFlight = false; publish();
+        void fail(Throwable t) {
+            for (SeatView seat : matchOwner().seats) synchronized (seat) {
+                seat.status = "error";
+                seat.error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+                seat.publish();
+            }
             t.printStackTrace();
         }
         synchronized void publish() {
             revision++;
-            Map<String,Object> out = map("schemaVersion", 1, "matchId", id, "revision", revision, "status", status,
-                    "turn", 0, "phase", "", "activePlayerId", null, "players", List.of(), "stack", List.of());
+            Map<String,Object> out = map("schemaVersion", 1, "matchId", id, "seat", seatNumber, "revision", revision, "status", status,
+                    "turn", 0, "phase", "", "activePlayerId", null, "viewerPlayerId", human == null ? null : pid(human), "players", List.of(), "stack", List.of());
             if (error != null) out.put("error", error);
             GameView view = gui == null ? null : gui.getGameView();
             if (view != null) {
@@ -399,7 +460,7 @@ public final class Bridge {
             }
             out.put("status", status);
             if (result != null) out.put("result", result);
-            if (prompt != null) out.put("prompt", prompt);
+            if (prompt != null && (!"priority".equals(promptKind) || priorityActive)) out.put("prompt", prompt);
             snapshot = JSON.toJson(out);
         }
         String pid(PlayerView p) { return String.valueOf(p.getId()); }
@@ -424,7 +485,12 @@ public final class Bridge {
             GuiGameEvent e = (GuiGameEvent) event; Object[] a = e.getObjects();
             synchronized (this) {
                 switch (e.getMethod()) {
-                    case openView -> { var ps = (Iterable<PlayerView>) a[0]; human = ps.iterator().next(); status = "playing"; }
+                    case openView -> {
+                        var ps = (Iterable<PlayerView>) a[0]; human = ps.iterator().next(); status = "playing";
+                        if (!commands.isEmpty() && "concede".equals(string(commands.peek(), "kind"))) {
+                            commands.poll(); matchOwner().concessions.offer(this);
+                        }
+                    }
                     case showPromptMessage -> { message = String.valueOf(a[1]); if (prompt != null && "priority".equals(promptKind)) prompt.put("message", message); }
                     case updateButtons -> {
                         if (human != null && human.equals(a[0])) {
@@ -474,7 +540,7 @@ public final class Bridge {
                     publish();
                 }
                 while (true) {
-                    JsonObject action = commands.take();
+                    JsonObject action = nextCommand(null);
                     synchronized (this) {
                         String kind = string(action, "kind");
                         if (kind.equals("concede")) { gui.getGameController(human).concede(); status = "finished"; prompt = null; promptId = null; input = null; manipulation = null; publish(); throw new CancellationException("Player conceded"); }
@@ -575,10 +641,28 @@ public final class Bridge {
             for (Object option : options) { String key = UUID.randomUUID().toString(); choices.put(key, option); String label = option instanceof CardView && !((CardView)option).canBeShownTo(human) ? "Face-down card" : String.valueOf(option); list.add(map("id", key, "label", label)); }
             prompt.put("min", min); prompt.put("max", max); prompt.put("choices", list);
         }
+        JsonObject nextCommand(CountDownLatch done) throws InterruptedException {
+            while (done == null || done.getCount() > 0) {
+                SeatView conceding = matchOwner().concessions.poll();
+                if (conceding != null) {
+                    conceding.gui.getGameController(conceding.human).concede();
+                    for (SeatView seat : matchOwner().seats) synchronized (seat) {
+                        seat.status = "finished"; seat.publish();
+                    }
+                    if (done != null) return null;
+                    throw new CancellationException("Player conceded");
+                }
+                JsonObject command = commands.poll(50, TimeUnit.MILLISECONDS);
+                if (command != null) return command;
+            }
+            return null;
+        }
         void pump(CountDownLatch done) {
+            synchronized (this) { priorityActive = true; publish(); }
             try {
                 while (done.getCount() > 0) {
-                    JsonObject action = commands.take();
+                    JsonObject action = nextCommand(done);
+                    if (action == null) return;
                     String kind = string(action, "kind");
                     String answeredPrompt = kind.equals("concede") ? null : string(action, "promptId");
                     IGameController controller = gui.getGameController(human);
@@ -596,17 +680,24 @@ public final class Bridge {
                 }
             } catch (CancellationException e) { throw e; }
             catch (Throwable t) { fail(t); throw new IllegalStateException(t); }
+            finally {
+                synchronized (this) {
+                    priorityActive = false;
+                    if ("priority".equals(promptKind)) { prompt = null; promptId = null; }
+                    publish();
+                }
+            }
         }
     }
     static final class PumpGui extends ProtocolGuiGame {
-        final MatchSession match;
-        PumpGui(MatchSession match) { super(match); this.match = match; }
+        final SeatView match;
+        PumpGui(SeatView match) { super(match); this.match = match; }
         @Override public void awaitInput(CountDownLatch done) { match.pump(done); }
     }
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) throw new IllegalArgumentException("Usage: Bridge https://your-site-origin");
-        Bridge bridge = new Bridge(args[0], 8787); bridge.server.start();
-        System.out.println("Forge bridge listening at http://127.0.0.1:8787");
-        System.out.println("Pairing token: " + bridge.token);
+        if (args.length < 1 || args.length > 2) throw new IllegalArgumentException("Usage: Bridge https://your-site-origin");
+        Bridge bridge = new Bridge(args[0], args.length == 2 ? Integer.parseInt(args[1]) : 8787); bridge.server.start();
+        System.out.println((bridge.hosted ? "Forge worker" : "Forge bridge") + " listening at http://127.0.0.1:" + bridge.server.getAddress().getPort());
+        if (!bridge.hosted) System.out.println("Pairing token: " + bridge.token);
     }
 }

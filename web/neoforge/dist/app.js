@@ -1,3 +1,6 @@
+const invitation = new URLSearchParams(location.hash.slice(1)).get("invite");
+if (invitation !== null) history.replaceState(null, "", location.pathname + location.search);
+
 const app = document.querySelector("#app"),
   dialog = document.querySelector("#dialog"),
   modal = document.querySelector("#dialog-content");
@@ -29,8 +32,8 @@ try {
 } catch (e) {
   saved = null;
 }
-const validDecks = Array.isArray(saved?.decks)
-  ? saved.decks.filter(
+const validateLibrary = (decks) => Array.isArray(decks)
+  ? decks.filter(
       (d) =>
         d &&
         typeof d.id === "string" &&
@@ -46,8 +49,11 @@ const validDecks = Array.isArray(saved?.decks)
         ),
     )
   : [];
+const validDecks = validateLibrary(saved?.decks);
 const state = {
   decks: validDecks,
+  libraryLoaded: false,
+  librarySave: Promise.resolve(),
   view: "library",
   deckId: null,
   preview: null,
@@ -57,8 +63,11 @@ const state = {
   mv: "",
   resultPage: 0,
   connected: false,
-  url: "http://127.0.0.1:8787",
-  token: "",
+  session: { authenticated: false, canCreate: false, seat: null, hasMatch: false },
+  connection: "checking",
+  connectionError: "",
+  inviteUrl: "",
+  mode: "cpu",
   snapshot: null,
   selection: { matchId: null, promptId: null, ids: [], number: null, allocations: {} },
   composing: false,
@@ -69,17 +78,23 @@ const state = {
   storageError: "",
   timer: null,
 };
+const desktopClient = () => state.session.transport === "desktop";
 const deck = () => state.decks.find((d) => d.id === state.deckId);
 function save() {
+  if (desktopClient()) {
+    state.storageError = "";
+    const body = JSON.stringify({ decks: state.decks });
+    state.librarySave = state.librarySave.then(() => api("library", { method: "POST", body })).catch((error) => {
+      state.storageError = `Could not save decks to your application profile. Export a copy. ${error.message}`;
+      toast(state.storageError);
+    });
+    return;
+  }
   try {
-    localStorage.setItem(
-      "neoforge-library-v1",
-      JSON.stringify({ version: 1, decks: state.decks }),
-    );
+    localStorage.setItem("neoforge-library-v1", JSON.stringify({ version: 1, decks: state.decks }));
     state.storageError = "";
   } catch (e) {
-    state.storageError =
-      "Could not save locally. Export your decks to avoid losing changes.";
+    state.storageError = "Could not save locally. Export your decks to avoid losing changes.";
     toast(state.storageError);
   }
 }
@@ -168,11 +183,11 @@ function validation(d) {
   return out;
 }
 function shell(content) {
-  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="mark"><span>N</span></div>NeoForge</div><nav class="nav" aria-label="Main navigation"><div class="navlabel">Your workspace</div><button data-nav="library" class="${state.view === "library" ? "active" : ""}"><span class="icon">▦</span> Library</button><button data-nav="editor" class="${state.view === "editor" ? "active" : ""}"><span class="icon">◇</span> Deck builder</button><button data-nav="play" class="${state.view === "play" ? "active" : ""}"><span class="icon">♟</span> Play</button></nav><div class="sidefoot"><span class="status-dot ${state.connected ? "on" : ""}"></span>${state.connected ? "PC connected" : "PC offline"}<br>Decks are saved in this browser.</div></aside><div class="workspace"><header class="topbar"><span>COMMANDER / ${state.view.toUpperCase()}</span><div class="top-actions"><button class="button ghost small" data-action="help">How it works</button><button class="button small" data-action="connect"><span class="status-dot ${state.connected ? "on" : ""}"></span>${state.connected ? "Connected" : "Connect PC"}</button></div></header><main class="main">${state.storageError ? `<div class="notice">${esc(state.storageError)}</div>` : ""}${content}</main></div></div>`;
+  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="mark"><span>N</span></div>NeoForge</div><nav class="nav" aria-label="Main navigation"><div class="navlabel">Your workspace</div><button data-nav="library" class="${state.view === "library" ? "active" : ""}"><span class="icon">▦</span> Library</button><button data-nav="editor" class="${state.view === "editor" ? "active" : ""}"><span class="icon">◇</span> Deck builder</button><button data-nav="play" class="${state.view === "play" ? "active" : ""}"><span class="icon">♟</span> Play</button></nav><div class="sidefoot"><span class="status-dot ${state.connected ? "on" : ""}"></span>${state.connected ? (desktopClient() ? "Client ready" : "Server connected") : "Disconnected"}<br>${desktopClient() ? "Decks are saved in your app profile." : "Decks are saved in this browser."}</div></aside><div class="workspace"><header class="topbar"><span>COMMANDER / ${state.view.toUpperCase()}</span><div class="top-actions"><button class="button ghost small" data-action="help">How it works</button><button class="button small" data-action="connect"><span class="status-dot ${state.connected ? "on" : ""}"></span>${desktopClient() ? "Client info" : state.connected ? "Session" : "Sign in"}</button></div></header><main class="main">${state.storageError ? `<div class="notice">${esc(state.storageError)}</div>` : ""}${content}</main></div></div>`;
 }
 function library() {
   shell(
-    `<div class="title-row"><div><div class="eyebrow">Your collection of ideas</div><h1>Deck library</h1><p>Build something worth bringing to the table.</p></div><div class="toolbar"><button class="button" data-action="import">Import deck</button><button class="button primary" data-action="new">＋ New deck</button></div></div><div class="hero"><div><div class="eyebrow">The command zone awaits</div><h2>Every great game starts here.</h2><p>Explore the card catalogue, make a deck your own, and take it into a real game with Forge on your PC.</p></div><button class="button" data-action="stocks">Explore starter decks →</button></div><div class="panel"><div class="panel-head"><h2>Your decks</h2><span class="subtle">${state.decks.length} ${state.decks.length === 1 ? "deck" : "decks"}</span></div><div class="panel-body">${
+    `<div class="title-row"><div><div class="eyebrow">Your collection of ideas</div><h1>Deck library</h1><p>Build something worth bringing to the table.</p></div><div class="toolbar"><button class="button" data-action="import">Import deck</button><button class="button primary" data-action="new">＋ New deck</button></div></div><div class="hero"><div><div class="eyebrow">The command zone awaits</div><h2>Every great game starts here.</h2><p>Explore the card catalogue, make a deck your own, and take it into a real game with Forge.</p></div><button class="button" data-action="stocks">Explore starter decks →</button></div><div class="panel"><div class="panel-head"><h2>Your decks</h2><span class="subtle">${state.decks.length} ${state.decks.length === 1 ? "deck" : "decks"}</span></div><div class="panel-body">${
       state.decks.length
         ? `<div class="deck-grid">${state.decks
             .map(
@@ -239,10 +254,15 @@ function entryRows(entries) {
     : '<p class="subtle">None yet.</p>';
 }
 function play() {
-  let s = state.snapshot;
-  shell(
-    `<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>A real game powered by Forge running on your PC.</p></div>${state.connected && !s?.result && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${!state.connected ? `<div class="hero"><div><div class="eyebrow">Your engine, your machine</div><h2>Connect to take a seat.</h2><p>Start the NeoForge companion on your PC, then pair this browser to play against Forge's CPU.</p></div><button class="button primary" data-action="connect">Connect PC</button></div>` : ["playing", "starting"].includes(s?.status) ? "" : `<div class="panel"><div class="panel-head"><h2>Start a match</h2><span class="subtle">Connected to Forge</span></div><div class="panel-body"><div class="split"><div class="field"><label for="human-deck">YOUR DECK</label><select id="human-deck">${deckOptions()}</select></div><div class="field"><label for="ai-deck">CPU DECK</label><select id="ai-deck">${deckOptions()}</select></div></div><button class="button primary" data-action="start" ${state.decks.length && !["playing", "starting"].includes(s?.status) ? "" : "disabled"}>Start real game</button> <span class="subtle">Forge validates both decks before play.</span></div></div>`}${s ? matchView(s) : ""}`,
-  );
+  const s = state.snapshot;
+  const active = ["waiting", "playing", "starting"].includes(s?.status);
+  const entry = !state.connected
+    ? `<div class="hero"><div><div class="eyebrow">Hosted play</div><h2>${state.connection === "checking" ? "Restoring your session…" : "Take a seat."}</h2><p>${esc(state.connectionError || "Sign in with the private service access key, or open a friend's invitation.")}</p></div><button class="button primary" data-action="${state.session.authenticated ? "reconnect" : "connect"}">${state.session.authenticated ? "Reconnect" : "Sign in"}</button></div>`
+    : active ? "" : state.session.canCreate
+    ? `<div class="panel"><div class="panel-head"><h2>${desktopClient() ? "Host a match" : "Start a match"}</h2><span class="subtle">${desktopClient() ? "Forge runs on your computer" : "Hosted by Forge"}</span></div><div class="panel-body"><div class="field"><label for="match-mode">OPPONENT</label><select id="match-mode"><option value="cpu" ${state.mode === "cpu" ? "selected" : ""}>Forge CPU</option><option value="human" ${state.mode === "human" ? "selected" : ""}>A friend</option></select></div><div class="split"><div class="field"><label for="human-deck">YOUR DECK</label><select id="human-deck">${deckOptions()}</select></div><div class="field"><label for="ai-deck">OPPONENT DECK</label><select id="ai-deck">${deckOptions()}</select></div></div><button class="button primary" data-action="start" ${state.decks.length ? "" : "disabled"}>Start match</button> <span class="subtle">Forge validates both decks before play.</span></div></div>`
+    : `<div class="notice">Your guest session cannot create matches. Open a new invitation from your friend to play again.</div>`;
+  const lobby = s?.status === "waiting" ? `<section class="panel lobby" aria-live="polite"><h2>Waiting for your friend</h2><p>Your seat is reserved. The game starts when your friend joins.</p>${state.session.seat === 0 ? `<button class="button primary" data-action="invite">${desktopClient() ? "Show invitation" : state.inviteUrl ? "Replace invitation" : "Generate invitation"}</button>${state.inviteUrl ? `<div class="field"><label for="invite-url">ONE-USE INVITATION</label><input id="invite-url" readonly value="${esc(state.inviteUrl)}"></div><button class="button" data-action="copy-invite">Copy invitation</button><p class="subtle">Keep this link private. ${desktopClient() ? "Your friend pastes this invitation into their installed NeoForge client. Keep your app running." : "A replacement invalidates the previous invitation."}</p>` : ""}` : ""}</section>` : "";
+  shell(`<div class="title-row"><div><div class="eyebrow">The table</div><h1>Play Commander</h1><p>${desktopClient() ? "Play locally against the CPU, or host a game for a friend. Keep the host app running during online play." : "A real game powered by Forge on the server."}</p></div>${state.connected && !s?.result && ["playing", "starting"].includes(s?.status) ? '<button class="button danger" data-action="concede">Concede</button>' : ""}</div>${desktopClient() && state.connected && !state.session.hasMatch ? '<button class="button" data-action="join-friend">Join a friend</button>' : ""}${desktopClient() && !state.session.relayConfigured && !state.session.hasMatch ? '<p class="subtle">This build has no relay configured for hosting online games. You can play the CPU or paste a friend’s invitation to join.</p>' : ""}${entry}${lobby}${s && s.status !== "idle" && s.status !== "waiting" && state.connected ? matchView(s) : ""}`);
 }
 function deckOptions() {
   return state.decks
@@ -256,7 +276,7 @@ function resultView(s) {
   if (s.status !== "finished") return "";
   const result = s.result;
   if (!result) return '<section class="game-result" role="status"><h2>Game finished</h2><p>Result unavailable.</p></section>';
-  const local = result.participants.find((participant) => participant.name === "You");
+  const local = result.participants[state.session.seat ?? 0];
   const heading = result.kind === "draw" ? "Draw" : local?.outcome === "won" ? "You won"
     : local?.lossReason === "Conceded" ? "You conceded" : local?.outcome === "lost" ? "You lost" : "Game finished";
   const reasons = {
@@ -269,7 +289,10 @@ function resultView(s) {
 }
 function matchView(s) {
   const interactive = s.status === "playing" && !s.result;
-  return `<div class="panel" style="margin-top:22px"><div class="panel-head"><div><div class="eyebrow">${esc(s.status)} · Turn ${esc(s.turn ?? "—")}</div><h2>${esc(s.phase || "Waiting for game")}</h2></div><span class="subtle">${esc(s.error || "")}</span></div><div class="panel-body">${resultView(s)}${interactive && s.prompt ? promptView(s.prompt) : ""}<div class="split">${(s.players || []).map((p, i) => `<section><div class="game-header"><h2 class="section-title">${interactive ? `<button class="card-name" data-player="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name)} ${i === 0 ? "" : '<span class="subtle">CPU</span>'}</h2><div class="life">${esc(p.life)} <small>life</small></div></div><p class="subtle">Hand ${esc(p.handCount)} · Library ${esc(p.libraryCount)}</p>${p.hand ? zone("Hand", p.hand, interactive) : ""}${zone("Battlefield", p.battlefield, interactive)}${zone("Command", p.command, interactive)}${zone("Graveyard", p.graveyard, interactive)}${zone("Exile", p.exile, interactive)}</section>`).join("")}</div>${zone(
+  const viewerIndex = s.players?.findIndex((player) => player.id === s.viewerPlayerId) ?? -1;
+  const seat = viewerIndex >= 0 ? viewerIndex : state.session.seat ?? 0;
+  const players = (s.players || []).map((player, index) => ({ player, index })).sort((a, b) => (b.index === seat) - (a.index === seat));
+  return `<div class="panel" style="margin-top:22px"><div class="panel-head"><div><div class="eyebrow">${esc(s.status)} · Turn ${esc(s.turn ?? "—")}</div><h2>${esc(s.phase || "Waiting for game")}</h2></div><span class="subtle">${esc(s.error || "")}</span></div><div class="panel-body">${resultView(s)}${interactive && s.prompt ? promptView(s.prompt) : ""}<div class="split">${players.map(({ player: p, index: i }) => `<section><div class="game-header"><h2 class="section-title">${interactive ? `<button class="card-name" data-player="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name)} <span class="subtle">${i === seat ? "Your seat" : "Opponent"}</span></h2><div class="life">${esc(p.life)} <small>life</small></div></div><p class="subtle">Hand ${esc(p.handCount)} · Library ${esc(p.libraryCount)}</p>${i === seat && p.hand ? zone("Your hand", p.hand, interactive) : ""}${zone("Battlefield", p.battlefield, interactive)}${zone("Command", p.command, interactive)}${zone("Graveyard", p.graveyard, interactive)}${zone("Exile", p.exile, interactive)}</section>`).join("")}</div>${zone(
     "Stack",
     (s.stack || []).map((x) => ({ ...x, name: x.label })), interactive,
   )}${s.log?.length ? `<div class="section-label">Game log</div><p class="subtle">${s.log.slice(-8).map(esc).join("<br>")}</p>` : ""}</div></div>`;
@@ -376,11 +399,11 @@ function render() {
   }
 }
 async function api(path, options = {}) {
-  const r = await fetch(state.url.replace(/\/$/, "") + "/api/v1/" + path, {
+  const r = await fetch("/api/v1/" + path, {
+    credentials: "same-origin",
     ...options,
     signal: AbortSignal.timeout(15000),
     headers: {
-      Authorization: `Bearer ${state.token}`,
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...options.headers,
     },
@@ -391,12 +414,13 @@ async function api(path, options = {}) {
   } catch {
     data = {};
   }
-  if (!r.ok)
-    throw Error(
-      data.error?.message || data.error || `PC returned HTTP ${r.status}`,
-    );
+  if (!r.ok) {
+    const error = Error(data.error?.message || data.error || `Server returned HTTP ${r.status}`);
+    error.status = r.status;
+    throw error;
+  }
   if (data.schemaVersion !== 1)
-    throw Error("This companion uses an unsupported protocol version.");
+    throw Error("This server uses an unsupported protocol version.");
   return data;
 }
 function acceptSnapshot(snapshot) {
@@ -410,7 +434,7 @@ function acceptSnapshot(snapshot) {
     !Array.isArray(snapshot.players) ||
     !Number.isSafeInteger(snapshot.revision)
   )
-    throw Error("The companion returned an invalid match snapshot.");
+    throw Error("The server returned an invalid match snapshot.");
   if (state.selection.matchId !== snapshot.matchId || state.selection.promptId !== snapshot.prompt?.id) {
     const p = snapshot.prompt;
     state.selection = {
@@ -428,6 +452,9 @@ function acceptSnapshot(snapshot) {
     };
   }
   state.snapshot = snapshot;
+  if (snapshot.seat === 0 || snapshot.seat === 1) state.session.seat = snapshot.seat;
+  state.session.hasMatch = snapshot.status !== "idle";
+  if (snapshot.status !== "waiting") state.inviteUrl = "";
 }
 async function poll() {
   if (!state.connected || state.busy || state.polling) return;
@@ -445,8 +472,10 @@ async function poll() {
     }
   } catch (e) {
     state.connected = false;
+    state.connection = "offline";
+    state.connectionError = `Connection lost. ${e.message}. Reconnect to check your session.`;
     clearInterval(state.timer);
-    toast(`Connection lost: ${e.message}. Reconnect to continue.`);
+    toast(state.connectionError);
     render();
   } finally {
     state.polling = false;
@@ -699,17 +728,40 @@ app.addEventListener("click", async (e) => {
     state.resultPage++;
     render();
   }
-  if (a === "help") {
-    openModal(
-      `<h2>Welcome to NeoForge</h2><p>Build Commander decks from the full local catalogue. Your library is saved in this browser, so export decks to keep a portable copy. The draft checks are a guide; Forge has the final say on legality.</p><p>To play, run the NeoForge companion on your PC and connect using its address and pairing token. Select both decks and start a game against Forge's CPU. This is an early browser test version. Combat damage and divided amounts use an assignment editor. Some other game decisions are still being implemented. The token stays in memory and is cleared when you reload.</p><p><a class="button" href="downloads/neoforge-companion-source.zip" download>Download companion source</a></p><p>Extract the source into your Forge checkout and follow its README. To allow this Site, launch it with <code>python tools/browser-bridge/launch.py --origin ${esc(location.origin)}</code>. Your browser may ask for local-network access when connecting.</p><p>Test draw is a quick sample hand, separate from real play.</p><div class="modal-actions"><button class="button primary" data-action="close">Got it</button></div>`,
-    );
+  if (a === "help" && desktopClient()) {
+    openModal('<h2>Play with NeoForge</h2><p>Build or import decks, then open Play. Choose the CPU for a local game, or A friend to host. The host selects both decks and shares the invitation. Your friend opens their installed client, clicks Join a friend, and pastes the complete invitation.</p><p>The host’s Forge engine decides all game results. Each player sees their own hand. Keep both applications open to reconnect after a network interruption. Closing the host ends the game.</p><div class="modal-actions"><button class="button primary" data-action="close">Got it</button></div>');
   }
-  if (a === "connect") {
-    openModal(
-      `<h2>Connect your PC</h2><p>Start the NeoForge companion on your PC. Enter its loopback address and pairing token below. Your token is kept only until this page is closed or reloaded.</p><div class="field"><label for="host-url">COMPANION ADDRESS</label><input id="host-url" value="${esc(state.url)}"></div><div class="field"><label for="host-token">PAIRING TOKEN</label><input id="host-token" type="password" autocomplete="off" value="${esc(state.token)}"></div><p id="connect-error" class="subtle" role="status"></p><div class="modal-actions">${state.connected ? '<button class="button danger" data-action="disconnect">Disconnect</button>' : ""}<button class="button" data-action="close">Cancel</button><button class="button primary" data-action="pair">Connect</button></div>`,
-    );
+  if (a === "help" && !desktopClient()) {
+    openModal(`<h2>Welcome to NeoForge</h2><p>Build Commander decks from the card catalogue. Decks stay in this browser, so export them to keep a copy.</p><p>Sign in with the private service access key to host a match against Forge's CPU or a friend. Choose both decks. For a friend, generate a private invitation in the waiting lobby. Invitations work once.</p><p>Your session reconnects on reload in this browser. Full accounts are planned for a later milestone. Test draw is a sample hand, separate from real play.</p><div class="modal-actions"><button class="button primary" data-action="close">Got it</button></div>`);
+  }
+  if (a === "connect" && desktopClient()) {
+    openModal('<h2>NeoForge client</h2><p>Forge and Java are included with this application. Your browser displays the interface locally. The host runs the game; the relay carries your friend’s actions and private game view.</p><p>Keep the host application open. Closing the host ends the game. Network reconnect works while both applications remain open.</p><div class="modal-actions"><button class="button primary" data-action="close">Close</button></div>');
+  }
+  if (a === "connect" && !desktopClient()) {
+    openModal(`<h2>${state.session.authenticated ? "Your session" : "Sign in to host"}</h2><p>Enter the private service access key to create matches. Friends can join with an invitation. Full accounts are planned for a later milestone.</p><div class="field"><label for="access-key">SERVICE ACCESS KEY</label><input id="access-key" type="password" autocomplete="off"></div><p id="connect-error" role="status"></p><div class="modal-actions">${state.session.authenticated ? '<button class="button danger" data-action="logout">Sign out</button>' : ""}<button class="button" data-action="close">Cancel</button><button class="button primary" data-action="login">Sign in</button></div>`);
+  }
+  if (a === "join-friend" && desktopClient()) {
+    openModal('<h2>Join a friend</h2><p>Paste the complete invitation from your friend. Both clients must use the same release.</p><div class="field"><label for="friend-invitation">INVITATION</label><input id="friend-invitation" type="text" autocomplete="off" spellcheck="false"></div><p id="join-error" role="status"></p><div class="modal-actions"><button class="button" data-action="close">Cancel</button><button class="button primary" data-action="join-desktop">Join game</button></div>');
+  }
+  if (a === "reconnect") await reconnect();
+  if (a === "invite" && !state.busy) {
+    state.busy = true;
+    try {
+      const result = await api("invites", { method: "POST", body: "{}" });
+      state.inviteUrl = result.inviteUrl;
+      render();
+    } catch (error) { toast(error.message); }
+    finally { state.busy = false; }
+  }
+  if (a === "copy-invite") {
+    const input = document.querySelector("#invite-url");
+    input.focus();
+    input.select();
+    try { await navigator.clipboard.writeText(state.inviteUrl); toast("Invitation copied."); }
+    catch { toast("Select and copy the invitation above."); }
   }
   if (a === "start") {
+    if (!state.session.canCreate || !state.connected) return;
     let human = state.decks.find(
         (x) => x.id === document.querySelector("#human-deck").value,
       ),
@@ -724,6 +776,7 @@ app.addEventListener("click", async (e) => {
         body: JSON.stringify({
           humanDeck: { name: human.name, entries: human.entries },
           aiDeck: { name: ai.name, entries: ai.entries },
+          mode: document.querySelector("#match-mode").value,
         }),
       });
       acceptSnapshot(result);
@@ -736,7 +789,7 @@ app.addEventListener("click", async (e) => {
   }
   if (a === "concede") {
     openModal(
-      '<h2>Concede this game?</h2><p>This ends your current game against the CPU.</p><div class="modal-actions"><button class="button" data-action="close">Cancel</button><button class="button danger" data-action="confirm-concede">Concede</button></div>',
+      '<h2>Concede this game?</h2><p>This ends your current game.</p><div class="modal-actions"><button class="button" data-action="close">Cancel</button><button class="button danger" data-action="confirm-concede">Concede</button></div>',
     );
   }
   if (a === "submit-choice") {
@@ -835,6 +888,22 @@ modal.addEventListener("click", async (e) => {
     render();
     return;
   }
+  if (a === "join-desktop" && !state.busy) {
+    const errorField = document.querySelector("#join-error");
+    const inviteUrl = document.querySelector("#friend-invitation").value.trim();
+    if (!inviteUrl) { errorField.textContent = "Paste the complete invitation."; return; }
+    state.busy = true;
+    b.disabled = true;
+    try {
+      await api("join", { method: "POST", body: JSON.stringify({ inviteUrl }) });
+      closeModal();
+      state.view = "play";
+      await reconnect();
+    } catch (error) {
+      errorField.textContent = error.message;
+      b.disabled = false;
+    } finally { state.busy = false; }
+  }
   if (a === "close") closeModal();
   if (a === "create") {
     createDeck(document.querySelector("#deck-name").value);
@@ -902,51 +971,29 @@ modal.addEventListener("click", async (e) => {
     state.view = "editor";
     render();
   }
-  if (a === "disconnect") {
-    state.connected = false;
-    state.token = "";
-    clearInterval(state.timer);
-    closeModal();
-    render();
-  }
-  if (a === "pair") {
-    let url = document.querySelector("#host-url").value.trim(),
-      token = document.querySelector("#host-token").value.trim(),
-      err = document.querySelector("#connect-error");
+  if (a === "logout") {
     try {
-      let parsed = new URL(url);
-      if (
-        !["http:", "https:"].includes(parsed.protocol) ||
-        parsed.hostname !== "127.0.0.1" ||
-        parsed.username ||
-        parsed.password ||
-        parsed.pathname !== "/" ||
-        parsed.search ||
-        parsed.hash
-      )
-        throw Error(
-          "Use http://127.0.0.1:8787 without a path, query, or fragment.",
-        );
-      if (!token) throw Error("Enter your pairing token.");
-      state.url = url;
-      state.token = token;
-      b.disabled = true;
-      let status = await api("status");
-      if (status.schemaVersion !== 1 || status.status !== "ready")
-        throw Error("The companion is not ready.");
-      state.connected = true;
+      await api("logout", { method: "POST", body: "{}" });
       clearInterval(state.timer);
-      state.timer = setInterval(() => {
-        if (!document.hidden) poll();
-      }, 1000);
+      state.session = { authenticated: false, canCreate: false, seat: null, hasMatch: false };
+      state.connected = false;
+      state.snapshot = null;
+      state.inviteUrl = "";
       closeModal();
       render();
-      poll();
-      toast("Connected to Forge on your PC.");
+    } catch (error) { toast(error.message); }
+  }
+  if (a === "login") {
+    const errorField = document.querySelector("#connect-error");
+    b.disabled = true;
+    try {
+      const accessKey = document.querySelector("#access-key").value;
+      if (!accessKey) throw Error("Enter the service access key.");
+      state.session = await api("session", { method: "POST", body: JSON.stringify({ accessKey }) });
+      closeModal();
+      await reconnect();
     } catch (error) {
-      state.connected = false;
-      state.token = "";
-      err.textContent = `Could not connect: ${error.message}. Check that the companion is running and allows this site.`;
+      errorField.textContent = error.message;
       b.disabled = false;
     }
   }
@@ -979,6 +1026,7 @@ app.addEventListener("input", (e) => {
 });
 
 app.addEventListener("change", (e) => {
+  if (e.target.id === "match-mode") state.mode = e.target.value;
   if (e.target.id === "manipulation-source") {
     state.selection.sourceId = e.target.value;
     state.selection.destination = null;
@@ -1009,4 +1057,44 @@ app.addEventListener("change", (e) => {
   }
 });
 
+async function reconnect() {
+  clearInterval(state.timer);
+  state.connection = "checking";
+  state.connectionError = "";
+  state.connected = false;
+  render();
+  try {
+    state.session = await api("session");
+    if (state.session.authenticated) {
+      if (desktopClient() && !state.libraryLoaded) {
+        const library = await api("library");
+        if (library.exists) state.decks = validateLibrary(library.decks);
+        else if (state.decks.length) await api("library", { method: "POST", body: JSON.stringify({ decks: state.decks }) });
+        state.libraryLoaded = true;
+      }
+      acceptSnapshot(await api("match"));
+      if (state.session.hasMatch) state.view = "play";
+      state.connected = true;
+      state.timer = setInterval(() => { if (!document.hidden) poll(); }, 1000);
+    } else {
+      state.snapshot = null;
+      state.inviteUrl = "";
+    }
+    state.connection = "ready";
+  } catch (error) {
+    state.connection = "offline";
+    state.connectionError = `Could not restore your session. ${error.message}`;
+  }
+  render();
+}
+
 render();
+if (invitation !== null) {
+  state.view = "play";
+  try {
+    await api("join", { method: "POST", body: JSON.stringify({ token: invitation }) });
+  } catch (error) {
+    toast(`Could not join. ${error.message}`);
+  }
+}
+await reconnect();

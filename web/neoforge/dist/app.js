@@ -337,13 +337,14 @@ function visibleCards(s = state.snapshot) {
 }
 function presentation(c) {
   const printed = card(c.name);
-  return { ...c, type: c.type || printed?.type || "", mana: c.mana || printed?.mana || "", text: c.text || printed?.text || "", hidden: c.faceDown === true || /^face.down card$/i.test(c.name || "") };
+  const hidden = /^face.down card$/i.test(c.name || "");
+  return { ...c, type: c.type || printed?.type || "", mana: c.mana || printed?.mana || "", text: c.text || printed?.text || "", hidden, artHidden: c.faceDown === true || hidden };
 }
 function tableCard(c, interactive) {
   const p = presentation(c);
   const actionControl = interactive ? `button class="game-card card-face" data-card="${esc(c.id)}" ${state.busy ? "disabled" : ""}` : 'div class="game-card card-face"';
   const counters = c.counters && typeof c.counters === "object" ? Object.entries(c.counters).filter(([, value]) => Number.isFinite(value) && value > 0).map(([name, value]) => `${name} ${value}`).join(" · ") : typeof c.counters === "string" ? c.counters : "";
-  return `<article class="table-card ${c.tapped ? "is-tapped" : ""}" data-visible-card="${esc(c.id)}"><${actionControl} aria-label="${esc(c.name)}${c.tapped ? ", tapped" : ""}">${artwork(p.hidden ? "Face-down card" : c.artName || c.name)}<span class="card-caption">${esc(c.name)}</span>${c.pt ? `<span class="card-stats">${esc(c.pt)}</span>` : ""}</${interactive ? "button" : "div"}><button class="card-inspect" data-inspect="${esc(c.id)}" aria-label="Inspect ${esc(c.name)}" title="Inspect card">↗</button>${c.tapped || c.attacking || c.blocking ? `<span class="card-state">${c.attacking ? "Attacking" : c.blocking ? "Blocking" : "Tapped"}</span>` : ""}${counters ? `<span class="card-counter">${esc(counters)}</span>` : ""}</article>`;
+  return `<article class="table-card ${c.tapped ? "is-tapped" : ""}" data-visible-card="${esc(c.id)}"><${actionControl} aria-label="${esc(c.name)}${c.tapped ? ", tapped" : ""}">${artwork(p.artHidden ? "Face-down card" : c.artName || c.name)}<span class="card-caption">${esc(c.name)}</span>${c.pt ? `<span class="card-stats">${esc(c.pt)}</span>` : ""}</${interactive ? "button" : "div"}><button class="card-inspect" data-inspect="${esc(c.id)}" aria-label="Inspect ${esc(c.name)}" title="Inspect card">↗</button>${c.tapped || c.attacking || c.blocking ? `<span class="card-state">${c.attacking ? "Attacking" : c.blocking ? "Blocking" : "Tapped"}</span>` : ""}${counters ? `<span class="card-counter">${esc(counters)}</span>` : ""}</article>`;
 }
 function zone(name, list = [], interactive = true, extra = "") {
   return `<section class="zone ${extra}" data-table-zone="${esc(name)}"><h3>${name}<span>${list.length}</span></h3><div class="zone-cards">${list.map((c) => tableCard(c, interactive)).join("") || '<span class="zone-empty">No cards</span>'}</div></section>`;
@@ -363,7 +364,7 @@ function inspectionView() {
   const inspected = visibleCards().find((c) => c.id === state.inspectedCard);
   if (!inspected) return '<div class="inspection-empty"><span aria-hidden="true">↗</span><h3>Look closer</h3><p>Hover or focus a card to inspect it. On touch, use its arrow button.</p><p class="subtle">Click a card itself to send it to the current Forge prompt.</p></div>';
   const p = presentation(inspected);
-  return `<div class="inspected-card">${artwork(p.hidden ? "Face-down card" : p.artName || p.name, "inspection-art")}<div class="inspection-copy"><h3>${esc(p.name)}</h3><p class="inspection-type">${esc(p.type)}</p><div class="inspection-mana">${esc(p.mana)}</div><p class="oracle-text">${esc(p.hidden ? "This card is hidden. Its identity and rules text are not available." : p.text || "No rules text available.")}</p>${p.tapped ? '<span class="inspection-tag">Tapped</span>' : ""}</div></div>`;
+  return `<div class="inspected-card">${artwork(p.artHidden ? "Face-down card" : p.artName || p.name, "inspection-art")}<div class="inspection-copy"><h3>${esc(p.name)}</h3><p class="inspection-type">${esc(p.type)}</p><div class="inspection-mana">${esc(p.mana)}</div><p class="oracle-text">${esc(p.hidden ? "This card is hidden. Its identity and rules text are not available." : p.text || "No rules text available.")}</p>${p.tapped ? '<span class="inspection-tag">Tapped</span>' : ""}</div></div>`;
 }
 function inspectCard(id) {
   if (state.inspectedCard === id || !visibleCards().some((c) => c.id === id)) return;

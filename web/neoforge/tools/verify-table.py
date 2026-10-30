@@ -111,6 +111,18 @@ try:
         expect(page.get_by_role('heading', name='Make it yours.', exact=True)).to_be_visible()
         page.locator('[data-nav="play"]').click()
         expect(page.locator('.game-table')).to_be_visible()
+        known_morph = card(90, 'Owner-visible morph', faceDown=True)
+        known_morph['text'] = 'Owner-visible morph rules.'
+        snapshot['players'][0]['battlefield'].append(known_morph)
+        snapshot['revision'] += 1
+        expect(page.locator('[data-visible-card="90"] [data-art-state="hidden"]')).to_have_count(1)
+        page.locator('[data-inspect="90"]').click(force=True)
+        expect(page.locator('#card-inspection .oracle-text')).to_contain_text('Owner-visible morph rules.')
+        expect(page.locator('#card-inspection [data-art-state="hidden"]')).to_have_count(1)
+        assert not any(name == 'Owner-visible morph' for name, _ in requests), 'Face-down owner card requested artwork'
+        snapshot['players'][0]['battlefield'].pop()
+        snapshot['revision'] += 1
+        expect(page.locator('[data-visible-card="90"]')).to_have_count(0)
         first = page.locator('.hand-zone [data-card]').first
         first.focus()
         expect(page.locator('#card-inspection h3')).to_have_text('Island')

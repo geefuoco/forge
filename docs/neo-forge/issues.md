@@ -99,3 +99,9 @@ The local `editor` variable in `render()` hid the deck builder's `editor()` func
 Status: corrected; final verification in progress.
 
 Independent browser review opened a 30-card graveyard, scrolled its `.zone` container to 150 pixels, advanced the snapshot revision, and observed a reset to zero. The renderer had preserved only the inner `.zone-cards` offsets. It now preserves both actual containers with distinct stable keys. The visual regression checks a long graveyard across polling as well as retaining the open pocket.
+
+## Owner-visible face-down cards lose their allowed inspection text
+
+Status: corrected; final verification in progress.
+
+Fresh browser review supplied an owner-visible face-down card with authorized name and rules text. The inspector showed its known title but incorrectly replaced its text with an unknown-identity message. Presentation now separates unknown identity from physical face-down artwork state. Known owners retain their projected rules text, while all face-down cards keep cardbacks and make no artwork lookup. The visual regression checks both the allowed text and the absence of an artwork request.

@@ -50,8 +50,20 @@ def run(image):
 
                 assert client.open(origin + '/').status == 200
                 assert request('/api/v1/session')[1]['transport'] == 'desktop'
+                status, settings = request('/api/v1/settings')
+                assert status == 200 and settings['schemaVersion'] == 1, settings
+                status, settings = request('/api/v1/settings', {'relayOrigin': 'https://saved.example'})
+                assert status == 200 and settings['relayOrigin'] == 'https://saved.example' and settings['source'] == 'saved', settings
+                assert request('/api/v1/session')[1]['relayConfigured'] is True
+                status, settings = request('/api/v1/settings', {'reset': True})
+                assert status == 200 and settings['source'] in ('packaged', 'none'), settings
+                status, settings = request('/api/v1/settings', {'relayOrigin': ''})
+                assert status == 200 and settings['source'] == 'saved' and settings['relayOrigin'] == '', settings
+                assert request('/api/v1/session')[1]['relayConfigured'] is False
                 decks = request('/data/precons.json')[1]
                 assert request('/api/v1/matches', {'mode': 'cpu', 'humanDeck': decks[0], 'aiDeck': decks[1]})[0] == 202
+                assert request('/api/v1/settings')[1]['locked'] is True
+                assert request('/api/v1/settings', {'reset': True})[0] == 409
                 deadline = time.monotonic() + 120
                 conceded = False
                 setup_verified = False
@@ -62,7 +74,7 @@ def run(image):
                     if snapshot.get('result'):
                         assert setup_verified and conceded and snapshot['status'] == 'finished', snapshot['status']
                         assert any(p.get('lossReason') == 'Conceded' for p in snapshot['result']['participants'])
-                        print(json.dumps({'nativeLauncher': 'passed', 'realEngine': 'passed',
+                        print(json.dumps({'nativeLauncher': 'passed', 'relaySettings': 'passed', 'realEngine': 'passed',
                                           'completion': 'authoritative concession', 'platform': os.name}))
                         return
                     players = snapshot.get('players', [])

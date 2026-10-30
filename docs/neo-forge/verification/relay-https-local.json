@@ -1,0 +1,61 @@
+{
+  "status": "passed",
+  "scope": "local Compose HTTPS, no public DNS or real Forge game",
+  "checks": [
+    "production services accept verified local HTTPS",
+    "unknown CA and wrong certificate hostname rejected",
+    "raw Host authority and Origin preserved and rejected",
+    "external protocol probe passed through TLS proxy",
+    "proxy overwrites forged client identity and enforces one-IP room cap",
+    "eight-second action timeout reaches client and retains pending command",
+    "backend has no published port and only the private network",
+    "success and upstream-failure logs omit query, body, and capability canaries",
+    "relay restart revokes rooms and proxy restarts with supplied local certificate"
+  ],
+  "codeCommit": "07f3fb251b70cf64fcd698499894cd56e61056cb",
+  "baseCommit": "e072baed26d300a204eea73c582c9dc89e932f8f",
+  "recordedDate": "2026-10-29",
+  "unitTests": {
+    "command": "python3 -B -m unittest discover -s tools/player-relay/tests -v",
+    "passed": 13
+  },
+  "limitations": [
+    "Synthetic relay protocol only; no real Forge game through HTTPS.",
+    "No public host, DNS, ACME issuance or renewal was exercised.",
+    "Certificate-volume persistence is configured; restart test uses a supplied local certificate.",
+    "No separate-network game or capacity measurement.",
+    "CI result has not yet been observed."
+  ],
+  "sourceSha256": {
+    ".github/workflows/relay-deployment.yml": "9de74535d6502b440dce648913376f8568cb31eddd3bda35002a93fea2504f9e",
+    "tools/player-relay/deploy/.env.example": "972104cacecc6cc59c4c384865b76cd00911da874e9122a50e33623215dadb8e",
+    "tools/player-relay/deploy/Caddyfile": "d26ef124d855d7a26f3433d8941cb9acebf9baa33e93f98ffa1d2c25a3dca740",
+    "tools/player-relay/deploy/README.md": "d33d9e6d5c4d4c3a7c9b6a2a4e8b39356453807483c9e67b60a73d962072f29f",
+    "tools/player-relay/deploy/compose.yaml": "113109d2ef31ad7da17d94f3ed0080e85acb0f36bbe851558f8520c8c56ba102",
+    "tools/player-relay/deploy/probe.py": "880ce496d54f9494f826b18ee6f618f3a14c3a3e53a43e42317bcdc19b58db8c",
+    "tools/player-relay/deploy/smoke.py": "1e3ec1a3297a87a5f255181003ac8911241988d7d1d925e2c676606d2ec80cf8",
+    "tools/player-relay/server.py": "696f5ccb2a2e42d673004bea90cf2a1781833303421ea04ea36041712d58f691",
+    "tools/player-relay/tests/test_relay.py": "499075bf7ae4490eb6abd37394458787b3e716f8574a090fae237e79b4e8304a"
+  },
+  "recordedTimezone": "America/Toronto",
+  "recordedAtUtc": "2026-10-30T03:37:23.996182+00:00",
+  "independentReviews": [
+    {
+      "scope": "identity and protocol boundaries",
+      "commit": "0c955f38e284ef03218fb800c3687b629f8436f5",
+      "verdict": "PASS",
+      "method": "13 real HTTP tests plus malformed/folded claims, exact Host/Origin, and separate client creation-attempt quotas."
+    },
+    {
+      "scope": "deployment, probe, docs, and decision trail",
+      "commit": "07f3fb251b70cf64fcd698499894cd56e61056cb",
+      "verdict": "PASS",
+      "method": "Actual Compose smoke plus independent redirect and continuous slow-header HTTPS servers.",
+      "adversarialProbe": {
+        "redirect": "Rejected without following or exposing response body.",
+        "slowHeaders": "Failed safely at the 45-second parent deadline while headers arrived once per second.",
+        "observedElapsedSeconds": 45.14
+      }
+    }
+  ]
+}

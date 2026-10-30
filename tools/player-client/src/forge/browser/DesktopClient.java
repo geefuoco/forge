@@ -18,7 +18,16 @@ public final class DesktopClient implements AutoCloseable {
     record Response(int status, String body) { }
     record Room(String origin, String id, String credential, String invite, boolean guest) { }
     record Completed(String action, Response response) { }
-    record Options(Path root, Path profile, String relay, String buildId, boolean dev, boolean open) {
+    enum Source {
+        CLI("commandLine"), PROFILE("saved"), BUNDLE("packaged"), NONE("none"), INVALID_SAVED("invalidSaved");
+        final String value;
+        Source(String value) { this.value = value; }
+    }
+    record RelaySettings(String effectiveOrigin, Source source, String warning) { }
+    record Options(Path root, Path profile, String relay, String buildId, boolean dev, boolean open, String relayOverride) {
+        Options(Path root, Path profile, String relay, String buildId, boolean dev, boolean open) {
+            this(root, profile, relay, buildId, dev, open, null);
+        }
         static Options parse(String[] args) throws Exception {
             Path root = Path.of(DesktopClient.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toAbsolutePath();
             if (!Files.isDirectory(root)) root = root.getParent();
@@ -34,12 +43,14 @@ public final class DesktopClient implements AutoCloseable {
             if (flags.containsKey("--root")) root = Path.of(flags.get("--root")).toAbsolutePath();
             JsonObject config = Files.isRegularFile(root.resolve("client-config.json"))
                     ? JsonParser.parseString(Files.readString(root.resolve("client-config.json"))).getAsJsonObject() : new JsonObject();
-            String relay = flags.getOrDefault("--relay", config.has("relayOrigin") ? config.get("relayOrigin").getAsString() : "");
+            String relay = config.has("relayOrigin") ? config.get("relayOrigin").getAsString() : "";
+            String relayOverride = flags.get("--relay");
             String build = flags.getOrDefault("--build-id", config.has("buildId") ? config.get("buildId").getAsString() : "");
             if (build.isBlank() || build.length() > 128) throw new IllegalArgumentException("A release buildId is required in client-config.json or --build-id");
-            if (!relay.isBlank()) relay = origin(relay, dev);
+            if (relayOverride == null && !relay.isEmpty()) relay = origin(relay, dev);
+            if (relayOverride != null && !relayOverride.isEmpty()) relayOverride = origin(relayOverride, dev);
             Path profile = Path.of(flags.getOrDefault("--profile", Path.of(System.getProperty("user.home"), ".neoforge", "player-client").toString())).toAbsolutePath();
-            return new Options(root, profile, relay, build, dev, open);
+            return new Options(root, profile, relay, build, dev, open, relayOverride);
         }
     }
     final Options options;
@@ -55,11 +66,13 @@ public final class DesktopClient implements AutoCloseable {
     volatile Room room;
     volatile String relayError;
     volatile boolean closed;
+    volatile RelaySettings relaySettings;
 
     DesktopClient(Options options) throws Exception {
         this.options = options;
         web = options.root.resolve("web/neoforge/dist").toAbsolutePath().normalize();
         Files.createDirectories(options.profile);
+        relaySettings = loadRelaySettings();
         System.setProperty("user.home", options.profile.toString());
         System.setProperty("forge.player.profile", options.profile.toString());
         System.setProperty("forge.player.assets", options.root.resolve("forge-gui").toString() + File.separator);
@@ -70,7 +83,65 @@ public final class DesktopClient implements AutoCloseable {
     }
     static String randomToken() { byte[] b = new byte[32]; new SecureRandom().nextBytes(b); return Base64.getUrlEncoder().withoutPadding().encodeToString(b); }
     String localOrigin() { return "http://127.0.0.1:" + server.getAddress().getPort(); }
-    Map<String,Object> session() { Room r = room; return Bridge.map("schemaVersion", 1, "authenticated", true, "canCreate", r == null || !r.guest, "seat", r != null && r.guest ? Integer.valueOf(1) : match == null ? null : Integer.valueOf(0), "hasMatch", match != null || r != null, "transport", "desktop", "relayConfigured", !options.relay.isBlank()); }
+    Map<String,Object> session() { Room r = room; RelaySettings settings = relaySettings; return Bridge.map("schemaVersion", 1, "authenticated", true, "canCreate", r == null || !r.guest, "seat", r != null && r.guest ? Integer.valueOf(1) : match == null ? null : Integer.valueOf(0), "hasMatch", match != null || r != null, "transport", "desktop", "relayConfigured", !settings.effectiveOrigin.isBlank()); }
+    RelaySettings fallbackSettings() {
+        if (options.relayOverride != null) return new RelaySettings(options.relayOverride, Source.CLI, null);
+        return new RelaySettings(options.relay, options.relay.isEmpty() ? Source.NONE : Source.BUNDLE, null);
+    }
+    RelaySettings loadRelaySettings() {
+        RelaySettings fallback = fallbackSettings();
+        Path file = options.profile.resolve("settings.json");
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) return fallback;
+        try {
+            if (Files.size(file) > 8192) throw new IllegalArgumentException("Saved relay settings exceed the size limit");
+            JsonElement parsed = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8));
+            if (!parsed.isJsonObject()) throw new IllegalArgumentException("Saved relay settings must be an object");
+            JsonObject value = parsed.getAsJsonObject();
+            if (value.size() != 2 || !value.has("schemaVersion") || !value.get("schemaVersion").isJsonPrimitive()
+                    || !value.get("schemaVersion").getAsJsonPrimitive().isNumber()
+                    || value.get("schemaVersion").getAsBigDecimal().compareTo(java.math.BigDecimal.ONE) != 0)
+                throw new IllegalArgumentException("Saved relay settings have an unknown format");
+            String saved = Bridge.string(value, "relayOrigin");
+            if (!saved.isEmpty()) saved = origin(saved, options.dev);
+            return options.relayOverride != null ? fallback : new RelaySettings(saved, Source.PROFILE, null);
+        } catch (Exception e) {
+            String warning = "Saved relay settings could not be read. Save a new relay or use the app default to repair them.";
+            return new RelaySettings(options.relayOverride == null ? "" : options.relayOverride,
+                    options.relayOverride == null ? Source.INVALID_SAVED : Source.CLI, warning);
+        }
+    }
+    Map<String,Object> settingsView() {
+        RelaySettings settings = relaySettings;
+        return Bridge.map("schemaVersion", 1, "relayOrigin", settings.effectiveOrigin, "source", settings.source.value,
+                "editable", options.relayOverride == null, "locked", options.relayOverride != null || room != null || match != null,
+                "warning", settings.warning, "packagedOrigin", options.relay);
+    }
+    void updateSettings(HttpExchange x) throws IOException {
+        if (options.relayOverride != null) { reply(x, 409, Bridge.error("The relay is set at launch. Restart the app without that setting to change it here.")); return; }
+        if (room != null || match != null) { reply(x, 409, Bridge.error("Restart the app before changing the relay after starting a game.")); return; }
+        JsonObject body = settingsBody(x);
+        boolean reset = body.size() == 1 && body.has("reset") && body.get("reset").isJsonPrimitive()
+                && body.get("reset").getAsJsonPrimitive().isBoolean() && body.get("reset").getAsBoolean();
+        boolean save = body.size() == 1 && body.has("relayOrigin") && body.get("relayOrigin").isJsonPrimitive()
+                && body.get("relayOrigin").getAsJsonPrimitive().isString();
+        if (!reset && !save) throw new IllegalArgumentException("Send a relay address or reset to the app default");
+        String newOrigin = save ? Bridge.string(body, "relayOrigin") : "";
+        if (save && !newOrigin.isEmpty()) newOrigin = origin(newOrigin, options.dev);
+        Path target = options.profile.resolve("settings.json");
+        try {
+            if (reset) Files.deleteIfExists(target);
+            else {
+                Path temporary = Files.createTempFile(options.profile, "settings-", ".tmp");
+                try {
+                    Files.writeString(temporary, JSON.toJson(Bridge.map("schemaVersion", 1, "relayOrigin", newOrigin)), StandardCharsets.UTF_8);
+                    try { Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+                    catch (AtomicMoveNotSupportedException e) { Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING); }
+                } finally { Files.deleteIfExists(temporary); }
+            }
+        } catch (IOException e) { reply(x, 503, Bridge.error("Could not save relay settings. Check the app profile and retry.")); return; }
+        relaySettings = reset ? fallbackSettings() : new RelaySettings(newOrigin, Source.PROFILE, null);
+        reply(x, 200, settingsView());
+    }
     boolean authenticated(HttpExchange x) {
         String header = x.getRequestHeaders().getFirst("Cookie");
         if (header == null) return false;
@@ -95,6 +166,7 @@ public final class DesktopClient implements AutoCloseable {
             if (!path.startsWith("/api/v1/")) { serveFile(x, path, method); return; }
             if (!authenticated(x)) { reply(x, 401, Bridge.error("Open this app's local page first")); return; }
             if (method.equals("GET") && path.equals("/api/v1/status")) { reply(x, 200, Bridge.map("schemaVersion", 1, "status", "ready")); return; }
+            if (method.equals("GET") && path.equals("/api/v1/settings")) { synchronized (this) { reply(x, 200, settingsView()); } return; }
             if (method.equals("GET") && path.equals("/api/v1/library")) {
                 synchronized (this) { reply(x, 200, library()); } return;
             }
@@ -106,9 +178,10 @@ public final class DesktopClient implements AutoCloseable {
             }
             if (!method.equals("POST")) { reply(x, 404, Bridge.error("Unknown endpoint")); return; }
             if (!"application/json".equalsIgnoreCase(x.getRequestHeaders().getFirst("Content-Type"))) { reply(x, 415, Bridge.error("Expected application/json")); return; }
-            JsonObject body = Bridge.body(x);
+            JsonObject body = path.equals("/api/v1/settings") ? null : Bridge.body(x);
             synchronized (this) {
                 switch (path) {
+                    case "/api/v1/settings" -> updateSettings(x);
                     case "/api/v1/session", "/api/v1/logout" -> reply(x, 200, session());
                     case "/api/v1/library" -> { saveLibrary(body); reply(x, 200, library()); }
                     case "/api/v1/matches" -> create(x, body);
@@ -129,6 +202,12 @@ public final class DesktopClient implements AutoCloseable {
         } catch (IllegalArgumentException | IllegalStateException e) { reply(x, 400, Bridge.error(e.getMessage() == null ? "Invalid request" : e.getMessage())); }
         catch (Exception e) { reply(x, 503, Bridge.error("Request could not complete; keep the app open and refresh")); }
         finally { x.close(); }
+    }
+    static JsonObject settingsBody(HttpExchange x) throws IOException {
+        byte[] bytes = x.getRequestBody().readNBytes(8193);
+        if (bytes.length > 8192) throw new IllegalArgumentException("Relay settings request is too large");
+        try { return JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject(); }
+        catch (RuntimeException e) { throw new IllegalArgumentException("Expected relay settings as a JSON object"); }
     }
     Map<String,Object> library() throws IOException {
         Path file = options.profile.resolve("library.json");
@@ -184,11 +263,12 @@ public final class DesktopClient implements AutoCloseable {
         if (!body.has("humanDeck") || !body.get("humanDeck").isJsonObject() || !body.has("aiDeck") || !body.get("aiDeck").isJsonObject()) throw new IllegalArgumentException("Two decks are required");
         Bridge.MatchSession candidate = new Bridge.MatchSession(body.deepCopy());
         if (mode.equals("human")) {
-            if (options.relay.isBlank()) { reply(x, 409, Bridge.error("Online play needs a configured relay; CPU play works locally")); return; }
-            Response response = request(options.relay + "/relay/v1/rooms", "POST", null, Bridge.map("protocolVersion", 1, "buildId", options.buildId));
+            String relayOrigin = relaySettings.effectiveOrigin;
+            if (relayOrigin.isBlank()) { reply(x, 409, Bridge.error("Online play needs a configured relay; CPU play works locally")); return; }
+            Response response = request(relayOrigin + "/relay/v1/rooms", "POST", null, Bridge.map("protocolVersion", 1, "buildId", options.buildId));
             if (response.status != 201) { send(x, response); return; }
             JsonObject value = object(response);
-            room = new Room(options.relay, Bridge.string(value, "roomId"), Bridge.string(value, "hostToken"), Bridge.string(value, "inviteUrl"), false);
+            room = new Room(relayOrigin, Bridge.string(value, "roomId"), Bridge.string(value, "hostToken"), Bridge.string(value, "inviteUrl"), false);
         }
         match = candidate;
         if (room == null) startEngine();
@@ -201,7 +281,8 @@ public final class DesktopClient implements AutoCloseable {
         URI invite = URI.create(Bridge.string(body, "inviteUrl"));
         String remote = origin(new URI(invite.getScheme(), invite.getRawAuthority(), null, null, null).toString(), options.dev);
         if (invite.getUserInfo() != null || invite.getQuery() != null || !(invite.getPath().isEmpty() || invite.getPath().equals("/")) || invite.getRawFragment() == null) throw new IllegalArgumentException("Invalid invitation URL");
-        if (!options.relay.isBlank() && !remote.equals(options.relay)) throw new IllegalArgumentException("Invitation uses a different relay");
+        String relayOrigin = relaySettings.effectiveOrigin;
+        if (!relayOrigin.isBlank() && !remote.equals(relayOrigin)) throw new IllegalArgumentException("Invitation uses a different relay");
         Map<String,String> fragment = new HashMap<>();
         for (String part : invite.getRawFragment().split("&")) {
             String[] pair = part.split("=", -1);
@@ -215,9 +296,10 @@ public final class DesktopClient implements AutoCloseable {
         reply(x, 200, session());
     }
     static String origin(String input, boolean dev) {
+        if (input.length() > 2048) throw new IllegalArgumentException("Relay address is too long");
         URI uri = URI.create(input);
         boolean loopback = Set.of("localhost", "127.0.0.1", "::1", "[::1]").contains(uri.getHost() == null ? "" : uri.getHost());
-        if (!("https".equals(uri.getScheme()) || (dev && loopback && "http".equals(uri.getScheme()))) || uri.getHost() == null || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null || !(uri.getPath().isEmpty() || uri.getPath().equals("/"))) throw new IllegalArgumentException("Relay must be an HTTPS origin; --dev permits loopback HTTP");
+        if (!("https".equals(uri.getScheme()) || (dev && loopback && "http".equals(uri.getScheme()))) || uri.getHost() == null || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null || uri.getPort() == 0 || uri.getPort() > 65535 || uri.getRawAuthority().endsWith(":") || !(uri.getPath().isEmpty() || uri.getPath().equals("/"))) throw new IllegalArgumentException("Relay must be an HTTPS origin; --dev permits loopback HTTP");
         return uri.getScheme() + "://" + uri.getRawAuthority();
     }
     static JsonObject object(Response response) { return JsonParser.parseString(response.body).getAsJsonObject(); }

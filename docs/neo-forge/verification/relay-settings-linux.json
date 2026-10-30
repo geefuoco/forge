@@ -1,0 +1,27 @@
+{
+  "scope": "local packaged Linux clients and real relay, not public deployment",
+  "checks": [
+    "both native executables started without external runtime tools",
+    "relay saved through Client info; invalid draft survives server error",
+    "save succeeds and session UI updates when a session GET would fail",
+    "saved relay survives native restart and new local port",
+    "mismatched build cannot consume invitation",
+    "friend joins through installed interface",
+    "waiting host cannot change relay",
+    "real Forge game advances through both private seat views",
+    "browser reload reconnects to same host match",
+    "stale action rejected through relay",
+    "guest concession yields authoritative result in both clients"
+  ],
+  "browserActions": 35,
+  "errors": [],
+  "buildId": "7699c919d6bf10ed3cf9475d356a962880a50e46",
+  "sourceRevision": "7699c919d6bf10ed3cf9475d356a962880a50e46",
+  "nativeSmoke": {
+    "nativeLauncher": "passed",
+    "relaySettings": "passed",
+    "realEngine": "passed",
+    "completion": "authoritative concession",
+    "platform": "posix"
+  }
+}

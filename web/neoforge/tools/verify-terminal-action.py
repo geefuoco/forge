@@ -1,3 +1,4 @@
+import os
 import asyncio
 import copy
 import functools
@@ -48,8 +49,11 @@ async def check(browser, name, error="Match is over", refresh=None, poll=None, t
         if request.method == "OPTIONS":
             await route.fulfill(status=204, headers=headers)
             return
-        if path == "status":
-            await route.fulfill(json={"schemaVersion": 1, "status": "ready"}, headers=headers)
+        if path == "session":
+            await route.fulfill(json={"schemaVersion": 1, "authenticated": True, "canCreate": True, "seat": 0, "hasMatch": True, "transport": "desktop"}, headers=headers)
+            return
+        if path == "library":
+            await route.fulfill(json={"schemaVersion": 1, "exists": True, "decks": []}, headers=headers)
             return
         if path == "action":
             actions.append(request.post_data_json)
@@ -77,11 +81,9 @@ async def check(browser, name, error="Match is over", refresh=None, poll=None, t
 
     await page.route("**/data/cards.json", lambda route: route.fulfill(json=[]))
     await page.route("**/api/v1/**", api)
+    await page.route("https://api.scryfall.com/**", lambda route: route.fulfill(status=404, json={"object": "error"}))
     try:
         await page.goto(origin)
-        await page.locator('[data-action="connect"]').click()
-        await page.locator("#host-token").fill("test-token")
-        await page.locator('[data-action="pair"]').click()
         await page.locator('[data-nav="play"]').click()
         await expect(page.locator(".prompt")).to_contain_text("Original decision")
         if poll is not None:
@@ -92,7 +94,7 @@ async def check(browser, name, error="Match is over", refresh=None, poll=None, t
         if timing == "before-post":
             release_poll.set()
             if poll["status"] in ("finished", "error"):
-                await expect(page.locator(".eyebrow", has_text="finished")).to_be_visible()
+                await expect(page.locator('.game-table[data-match-status="finished"]')).to_be_visible()
             else:
                 await expect(page.locator(".prompt")).to_contain_text("New decision")
             release_post.set()
@@ -100,16 +102,16 @@ async def check(browser, name, error="Match is over", refresh=None, poll=None, t
             await asyncio.wait_for(recovery_started.wait(), 3)
             release_poll.set()
             if poll["status"] in ("finished", "error"):
-                await expect(page.locator(".eyebrow", has_text="finished")).to_be_visible()
+                await expect(page.locator('.game-table[data-match-status="finished"]')).to_be_visible()
             else:
                 await expect(page.locator(".prompt")).to_contain_text("New decision")
             release_recovery.set()
         if expected == "terminal":
-            await expect(page.locator(".eyebrow", has_text="finished")).to_be_visible()
-            await expect(page.locator(".prompt")).to_have_count(0)
+            await expect(page.locator('.game-table[data-match-status="finished"]')).to_be_visible()
+            await expect(page.locator(".prompt:not(.waiting-prompt)")).to_have_count(0)
             await expect(page.locator('[data-action="concede"]')).to_have_count(0)
         elif expected == "error-terminal":
-            await expect(page.locator(".panel-head").last).to_contain_text("Engine stopped")
+            await expect(page.locator('[role="alert"]')).to_contain_text("Engine stopped")
         elif expected == "active":
             await expect(page.locator(".prompt")).to_contain_text("Original decision")
             await expect(page.locator(".flash")).to_contain_text("Action failed: Match is over")
@@ -137,7 +139,7 @@ async def check(browser, name, error="Match is over", refresh=None, poll=None, t
 
 async def main():
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(executable_path="/usr/bin/chromium", headless=True, args=["--no-sandbox"])
+        browser = await playwright.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH", "/usr/bin/chromium"), headless=True, args=["--no-sandbox"])
         try:
             await check(browser, "terminal conflict refresh", expected="terminal")
             await check(browser, "stale conflict refreshes terminal", error="Stale revision", expected="terminal")

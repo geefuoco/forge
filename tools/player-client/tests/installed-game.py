@@ -20,14 +20,14 @@ sys.modules[spec.name] = r
 spec.loader.exec_module(r)
 
 
-def launch(image, profile, relay, log):
+def launch(image, profile, log):
     binary = image / ('NeoForge.exe' if os.name == 'nt' else 'bin/NeoForge')
     environment = dict(os.environ)
     environment['PATH'] = os.environ.get('SystemRoot', '') + '\\System32' if os.name == 'nt' else '/nonexistent'
     for variable in ('JAVA_HOME', 'JDK_HOME', 'MAVEN_HOME', 'CLASSPATH'):
         environment.pop(variable, None)
     stream = log.open('w')
-    process = subprocess.Popen([str(binary), '--no-open', '--dev', '--relay', relay, '--profile', str(profile)],
+    process = subprocess.Popen([str(binary), '--no-open', '--dev', '--profile', str(profile)],
                                cwd=profile.parent, env=environment, stdout=stream, stderr=subprocess.STDOUT)
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
@@ -101,7 +101,7 @@ def main(image, work):
     try:
         clients = []
         for role in ('host', 'guest'):
-            process, stream, local = launch(image, work / (role + '-profile'), origin, work / (role + '.log'))
+            process, stream, local = launch(image, work / (role + '-profile'), work / (role + '.log'))
             running.append((process, stream))
             clients.append(local)
         checks.append('both native executables started without external runtime tools')
@@ -126,6 +126,52 @@ def main(image, work):
                 page.goto(local)
                 expect(page.locator('[data-nav="play"]')).to_be_visible()
             host, guest = pages
+            for role, page in zip(('host', 'guest'), pages):
+                page.locator('[data-action="connect"]').click()
+                expect(page.locator('#relay-origin')).to_be_visible()
+                if role == 'host':
+                    page.locator('#relay-origin').fill('https://invalid.example/path')
+                    page.locator('[data-action="save-relay"]').click()
+                    expect(page.locator('#relay-error')).not_to_be_empty()
+                    assert page.locator('#relay-origin').input_value() == 'https://invalid.example/path'
+                    page.evaluate('''() => {
+                        window.originalFetch = window.fetch;
+                        window.fetch = (url, options) => {
+                            if (String(url).endsWith('/api/v1/session') && (!options?.method || options.method === 'GET')) {
+                                return Promise.reject(new Error('forced session failure'));
+                            }
+                            return window.originalFetch(url, options);
+                        };
+                    }''')
+                page.locator('#relay-origin').fill(origin)
+                page.locator('[data-action="save-relay"]').click()
+                expect(page.locator('#relay-notice')).to_have_text('Relay saved.')
+                expect(page.locator('#dialog-content p:has(strong)')).to_contain_text(origin)
+                if role == 'host':
+                    expect(page.locator('#relay-error')).to_be_empty()
+                    page.evaluate('''() => {
+                        window.fetch = window.originalFetch;
+                        delete window.originalFetch;
+                    }''')
+                    page.screenshot(path=str(work / 'relay-settings.png'), full_page=True)
+                page.locator('#dialog-content [data-action="close"]').click()
+                if role == 'host':
+                    page.locator('[data-nav="play"]').click()
+                    expect(page.locator('.main')).not_to_contain_text('No relay is set')
+            checks.append('relay saved through Client info; invalid draft survives server error')
+            checks.append('save succeeds and session UI updates when a session GET would fail')
+            process, stream = running[0]
+            process.terminate()
+            process.wait(timeout=20)
+            stream.close()
+            process, stream, clients[0] = launch(image, work / 'host-profile', work / 'host-restart.log')
+            running[0] = process, stream
+            host.goto(clients[0])
+            host.locator('[data-action="connect"]').click()
+            expect(host.locator('#relay-origin')).to_have_value(origin)
+            expect(host.locator('#dialog-content')).to_contain_text('Saved in this app')
+            host.locator('#dialog-content [data-action="close"]').click()
+            checks.append('saved relay survives native restart and new local port')
             host.locator('[data-action="stocks"]').click()
             host.locator('[data-stock]').nth(0).click()
             host.locator('[data-stock]').nth(1).click()
@@ -134,6 +180,10 @@ def main(image, work):
             host.locator('#match-mode').select_option('human')
             host.locator('#ai-deck').select_option(index=1)
             host.locator('[data-action="start"]').click()
+            host.locator('[data-action="connect"]').click()
+            expect(host.locator('#relay-origin')).to_be_disabled()
+            expect(host.locator('#dialog-content')).to_contain_text('Restart the app')
+            host.locator('#dialog-content [data-action="close"]').click()
             host.locator('[data-action="invite"]').click()
             invitation = host.locator('#invite-url').input_value()
             fragment = parse_qs(urlsplit(invitation).fragment)
@@ -149,7 +199,7 @@ def main(image, work):
             guest.locator('#friend-invitation').fill(invitation)
             guest.locator('[data-action="join-desktop"]').click()
             expect(guest.locator('#dialog')).not_to_be_visible(timeout=15000)
-            checks += ['mismatched build cannot consume invitation', 'friend joins through installed interface']
+            checks += ['mismatched build cannot consume invitation', 'friend joins through installed interface', 'waiting host cannot change relay']
             seen = {}
             actions = 0
             deadline = time.monotonic() + 100

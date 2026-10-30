@@ -1,0 +1,79 @@
+{
+  "recordedDate": "2026-10-30",
+  "recordedTimezone": "America/Toronto",
+  "recordedAtUtc": "2026-10-30T17:48:16.347077+00:00",
+  "productSourceCommit": "747e6b4fe89bdb140a5965bcb8cc850bf0619b44",
+  "baseCommit": "7e052b9c60106431bc5c055fa9a38431ca702a2c",
+  "nativeLinux": {
+    "status": "passed",
+    "platform": "Linux",
+    "scope": "Real packaged client and Forge CPU game; artwork provider forced offline, no real image or natural-game claim.",
+    "buildId": "747e6b4fe89bdb140a5965bcb8cc850bf0619b44",
+    "checks": [
+      "opening hand and private opponent hand",
+      "land played through card activation and confirmed by Forge",
+      "keyboard inspection does not activate a card",
+      "real board and hand fit the desktop viewport",
+      "authoritative concession and inactive completed board"
+    ],
+    "browserActions": 13,
+    "errors": [],
+    "clientJarSha256": "a8b11209b7cc404861f75faaf1a3fd6d7ff4ced6e937631c276cba80de0a3561"
+  },
+  "browserFixtures": {
+    "status": "passed",
+    "scope": "Synthetic snapshot and artwork fixtures only. Does not verify real Scryfall artwork or Forge gameplay.",
+    "checks": [
+      "spatial board and private hand",
+      "rate-bound deduplicated artwork loading",
+      "cache retained across polling",
+      "inspection never dispatches; card and prompt controls dispatch",
+      "artwork unavailable and explicit retry",
+      "matching transformed face",
+      "crowded desktop and narrow layout",
+      "terminal controls inactive"
+    ],
+    "screenshots": [
+      "/tmp/neoforge-table-proof/narrow-fixture.png",
+      "/tmp/neoforge-table-proof/crowded-fixture.png",
+      "/tmp/neoforge-table-proof/desktop-fixture.png"
+    ]
+  },
+  "protocolChecks": {
+    "status": "passed",
+    "newCardViewChecks": 17,
+    "scope": "Actual Forge CardView, protocol inputs, allocations, revisions, reveals, completion and hosted privacy."
+  },
+  "independentReview": {
+    "initialProtocol": "PASS at87419d157d6; projection source unchanged through final product commit.",
+    "initialUI": "Found graveyard scroll reset; remaining five browser suites and screenshot review passed.",
+    "firstCorrection": "Verified scroll fix; found authorized owner face-down inspection text was redacted.",
+    "finalCorrection": "PASS at747e6b4fe89bdb140a5965bcb8cc850bf0619b44; both regressions, exact packaged asset hashes, and actual native Linux game independently checked."
+  },
+  "artworkProvider": {
+    "realNetworkVerified": false,
+    "status": "Deferred by user on2026-10-30; managed environment returned HTTP403.",
+    "hostsToAllow": [
+      "api.scryfall.com",
+      "cards.scryfall.io"
+    ],
+    "fixtureImages": "Explicit synthetic artwork. Native visual probe deliberately aborts metadata requests."
+  },
+  "limits": [
+    "Native game ends by confirmed concession; no natural-game or competitive-AI claim.",
+    "No real artwork-provider availability or image-content validation.",
+    "No Windows browser visual execution recorded locally.",
+    "No MTGA parity, measured FPS, broad Commander coverage, durable recovery or public separate-network acceptance claim.",
+    "Remote CI not yet observed when this record was written."
+  ],
+  "sourceSha256": {
+    "web/neoforge/dist/app.js": "8c0080b551acc9ad32b02f282835aa60ca786cd7a4024ac934419d89ac26c38d",
+    "web/neoforge/dist/style.css": "2ffb05c5a33194076f468157a192d550f2e51ac45f5b8fd6d41be8458105dbad",
+    "web/neoforge/dist/card-art.js": "f30c6e059ac7cce8496ce486e0c8aed7a987c02e04fe627875cbfc7e04073f3b",
+    "tools/browser-bridge/src/forge/browser/Bridge.java": "5c130d50494094abace5608e5346c5600d36809cf0fa03505afc60a30b31b44f",
+    "tools/player-client/src/forge/browser/DesktopClient.java": "d288fcabae683cabf58f2c5aa164a07f5d36844b8f99a3b58160cb4c648c1bbb",
+    "tools/player-client/tests/visual-game.py": "dd786bfd2748317572b26b434c98c2aab85fec81d4e7197cf229fbdc091a3b52",
+    "web/neoforge/tools/verify-table.py": "9332f8c13ebcf87ce7d60eff76c69e499a543a6a1b2dd6636738c0590e102225",
+    ".github/workflows/player-client.yml": "21e23db678f257b9eef35a61df549c17c5729d1acc3719ede34726edd515b2ab"
+  }
+}

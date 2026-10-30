@@ -32,6 +32,113 @@ public final class DesktopClientTest {
         DesktopClient client = new DesktopClient(new DesktopClient.Options(root, profile, relay, "test-release", true, false));
         client.server.start(); return client;
     }
+    static DesktopClient client(Path root, Path profile, String relay, String override) throws Exception {
+        DesktopClient client = new DesktopClient(new DesktopClient.Options(root, profile, relay, "test-release", true, false, override));
+        client.server.start(); return client;
+    }
+    static JsonObject settings(DesktopClient client, String cookie) throws Exception {
+        HttpResponse<String> response = call(client, "GET", "/api/v1/settings", cookie, null, null);
+        check(response.statusCode() == 200, "settings readable " + response.body());
+        return JsonParser.parseString(response.body()).getAsJsonObject();
+    }
+    static void relayOptionsPrecedence(Path root) throws Exception {
+        Path configRoot = Files.createTempDirectory(root, "invalid-relay-config-");
+        Files.writeString(configRoot.resolve("client-config.json"), "{\"buildId\":\"test-release\",\"relayOrigin\":\"http://public.example\"}");
+        String[] flags = {"--root", configRoot.toString(), "--dev", "--relay", "https://cli.example"};
+        DesktopClient.Options valid = DesktopClient.Options.parse(flags);
+        check(valid.relayOverride().equals("https://cli.example"), "explicit CLI relay wins over invalid packaged origin");
+        flags[4] = "";
+        DesktopClient.Options empty = DesktopClient.Options.parse(flags);
+        check(empty.relayOverride().isEmpty(), "explicit empty CLI relay wins over invalid packaged origin");
+        boolean rejected = false;
+        try { DesktopClient.Options.parse(new String[] {"--root", configRoot.toString(), "--dev"}); }
+        catch (IllegalArgumentException e) { rejected = true; }
+        check(rejected, "invalid packaged relay rejected when there is no CLI relay");
+    }
+    static void relaySettings(Path root, Path profile) throws Exception {
+        String packaged = "https://packaged.example";
+        String saved = "https://saved.example";
+        try (DesktopClient client = client(root, profile, packaged)) {
+            String cookie = cookie(client);
+            check(call(client, "GET", "/api/v1/settings", null, null, null).statusCode() == 401, "settings require cookie");
+            check(settings(client, cookie).get("source").getAsString().equals("packaged"), "packaged relay is initial default");
+            check(call(client, "POST", "/api/v1/settings", cookie, "{\"relayOrigin\":\"https://evil.example\"}", "https://evil.example").statusCode() == 403, "foreign origin cannot save settings");
+            for (String bad : List.of("http://public.example", "https://host.example/path", "https://name:pass@host.example", "https://host.example:0", "https://host.example:65536", "https://host.example?query", "https://host.example#part")) {
+                check(call(client, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", bad), client.localOrigin()).statusCode() == 400, "invalid relay rejected " + bad);
+            }
+            check(call(client, "POST", "/api/v1/settings", cookie, "{\"relayOrigin\":\"x\",\"reset\":true}", client.localOrigin()).statusCode() == 400, "ambiguous settings rejected");
+            check(call(client, "POST", "/api/v1/settings", cookie, "{\"relayOrigin\":\"" + "x".repeat(8200) + "\"}", client.localOrigin()).statusCode() == 400, "oversized body rejected");
+            check(settings(client, cookie).get("relayOrigin").getAsString().equals(packaged), "bad writes preserve relay");
+            check(call(client, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", saved), client.localOrigin()).statusCode() == 200, "relay saved");
+            check(settings(client, cookie).get("source").getAsString().equals("saved"), "saved source shown");
+            check(client.session().get("relayConfigured").equals(true), "session sees saved relay");
+        }
+        try (DesktopClient client = client(root, profile, packaged)) {
+            String cookie = cookie(client);
+            check(settings(client, cookie).get("relayOrigin").getAsString().equals(saved), "saved relay survives restart and new port");
+            check(call(client, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", ""), client.localOrigin()).statusCode() == 200, "empty relay saved");
+            check(!client.session().get("relayConfigured").equals(true), "empty saved relay disables hosting");
+        }
+        try (DesktopClient client = client(root, profile, packaged)) {
+            String cookie = cookie(client);
+            check(settings(client, cookie).get("relayOrigin").getAsString().isEmpty(), "empty override survives restart");
+            check(call(client, "POST", "/api/v1/settings", cookie, "{\"reset\":true}", client.localOrigin()).statusCode() == 200, "reset accepted");
+            check(settings(client, cookie).get("relayOrigin").getAsString().equals(packaged), "reset restores packaged relay");
+        }
+        Files.writeString(profile.resolve("settings.json"), "{broken");
+        try (DesktopClient client = client(root, profile, packaged)) {
+            String cookie = cookie(client);
+            JsonObject view = settings(client, cookie);
+            check(view.get("source").getAsString().equals("invalidSaved") && view.get("relayOrigin").getAsString().isEmpty(), "corrupt saved relay fails closed");
+            check(!view.get("warning").isJsonNull(), "corrupt settings warning visible");
+            check(Files.readString(profile.resolve("settings.json")).equals("{broken"), "corrupt file preserved");
+            check(call(client, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", saved), client.localOrigin()).statusCode() == 200, "explicit save repairs corruption");
+            check(settings(client, cookie).get("warning").isJsonNull(), "repair clears warning");
+        }
+        try (DesktopClient client = client(root, profile, packaged, "")) {
+            String cookie = cookie(client);
+            JsonObject view = settings(client, cookie);
+            check(view.get("source").getAsString().equals("commandLine") && view.get("relayOrigin").getAsString().isEmpty(), "explicit CLI empty wins");
+            check(!view.get("editable").getAsBoolean() && view.get("locked").getAsBoolean(), "CLI relay locked");
+            check(call(client, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", saved), client.localOrigin()).statusCode() == 409, "CLI relay cannot be changed");
+        }
+        Files.writeString(profile.resolve("settings.json"), "{\"schemaVersion\":1.5,\"relayOrigin\":\"" + saved + "\"}");
+        try (DesktopClient client = client(root, profile, packaged, "https://cli.example")) {
+            String cookie = cookie(client);
+            JsonObject view = settings(client, cookie);
+            check(view.get("relayOrigin").getAsString().equals("https://cli.example"), "CLI wins over corrupt saved settings");
+            check(!view.get("warning").isJsonNull(), "CLI still shows corrupt profile warning");
+        }
+        if (!System.getProperty("os.name").toLowerCase(Locale.ROOT).startsWith("windows")) {
+            Path dangling = profile.resolve("dangling");
+            Files.createDirectories(dangling);
+            Path link = dangling.resolve("settings.json");
+            Files.createSymbolicLink(link, Path.of("missing.json"));
+            try (DesktopClient client = client(root, dangling, packaged)) {
+                JsonObject view = settings(client, cookie(client));
+                check(view.get("source").getAsString().equals("invalidSaved") && view.get("relayOrigin").getAsString().isEmpty(), "dangling saved settings fail closed");
+                check(!view.get("warning").isJsonNull(), "dangling saved settings show warning");
+                check(Files.isSymbolicLink(link), "dangling saved entry preserved");
+            }
+            try (DesktopClient client = client(root, dangling, packaged, "https://cli.example")) {
+                JsonObject view = settings(client, cookie(client));
+                check(view.get("source").getAsString().equals("commandLine") && view.get("relayOrigin").getAsString().equals("https://cli.example"), "CLI wins over dangling saved settings");
+                check(!view.get("warning").isJsonNull(), "CLI still shows dangling settings warning");
+            }
+        }
+        Path failed = profile.resolve("failure");
+        Files.createDirectories(failed.resolve("settings.json"));
+        Files.writeString(failed.resolve("settings.json/blocker"), "keep");
+        try (DesktopClient client = client(root, failed, packaged)) {
+            String cookie = cookie(client);
+            check(settings(client, cookie).get("source").getAsString().equals("invalidSaved"), "unreadable saved entry fails closed");
+            check(call(client, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", saved), client.localOrigin()).statusCode() == 503, "failed replacement reports unavailable");
+            check(settings(client, cookie).get("source").getAsString().equals("invalidSaved"), "failed save preserves memory");
+            check(call(client, "POST", "/api/v1/settings", cookie, "{\"reset\":true}", client.localOrigin()).statusCode() == 503, "failed deletion reports unavailable");
+            check(settings(client, cookie).get("source").getAsString().equals("invalidSaved"), "failed reset preserves memory");
+        }
+    }
+    static String JSON(String key, String value) { return DesktopClient.JSON.toJson(Bridge.map(key, value)); }
     static void localBoundaryAndPersistence(Path root, Path profile) throws Exception {
         String decks = "{\"decks\":[{\"id\":\"draft\",\"name\":\"Draft\",\"entries\":[{\"name\":\"Uncatalogued card\",\"section\":\"main\",\"quantity\":1}]}]}";
         int firstPort;
@@ -89,10 +196,12 @@ public final class DesktopClientTest {
         });
         relay.start();
         try {
-            try (DesktopClient host = client(root, profile.resolve("host"), origin)) {
+            try (DesktopClient host = client(root, profile.resolve("host"), "")) {
                 String cookie = cookie(host);
+                check(call(host, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", origin), host.localOrigin()).statusCode() == 200, "host saves local relay before match");
                 HttpResponse<String> created = call(host, "POST", "/api/v1/matches", cookie, "{\"mode\":\"human\",\"humanDeck\":{},\"aiDeck\":{}}", host.localOrigin());
                 check(created.statusCode() == 202, "host creates waiting match");
+                check(call(host, "POST", "/api/v1/settings", cookie, "{\"reset\":true}", host.localOrigin()).statusCode() == 409, "waiting host cannot change relay");
                 check(!created.body().contains("host-secret"), "host credential absent from browser");
                 long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(8);
                 while (acknowledgments.get() < 3 && System.nanoTime() < deadline) Thread.sleep(50);
@@ -102,13 +211,20 @@ public final class DesktopClientTest {
                 check(call(host, "POST", "/api/v1/logout", cookie, "{}", host.localOrigin()).statusCode() == 200, "logout preserves live app session");
                 check(call(host, "GET", "/api/v1/match", cookie, null, null).body().contains(matchId.get()), "browser reconnect retains match");
             }
-            try (DesktopClient guest = client(root, profile.resolve("guest"), origin)) {
+            try (DesktopClient guest = client(root, profile.resolve("guest"), "")) {
                 String cookie = cookie(guest);
                 HttpResponse<String> joined = call(guest, "POST", "/api/v1/join", cookie, "{\"inviteUrl\":\"" + origin + "/#room=abcdefghijklmnop&invite=abcdefghijklmnop\"}", guest.localOrigin());
                 check(joined.statusCode() == 200 && !joined.body().contains("guest-secret"), "guest joins without exposing native token");
+                check(call(guest, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", origin), guest.localOrigin()).statusCode() == 409, "joined guest cannot change relay");
                 check(call(guest, "GET", "/api/v1/match", cookie, null, null).body().contains("\"seat\":1"), "guest reads remote seat");
                 check(!Bridge.SeatView.initialized, "stub guest and waiting host never initialize Forge");
                 check(joinCalls.get() == 1, "join called once");
+            }
+            try (DesktopClient guest = client(root, profile.resolve("mismatch"), "")) {
+                String cookie = cookie(guest);
+                check(call(guest, "POST", "/api/v1/settings", cookie, JSON("relayOrigin", "https://different.example"), guest.localOrigin()).statusCode() == 200, "guest saves different relay");
+                check(call(guest, "POST", "/api/v1/join", cookie, JSON("inviteUrl", origin + "/#room=abcdefghijklmnop&invite=abcdefghijklmnop"), guest.localOrigin()).statusCode() == 400, "different saved relay refuses invitation");
+                check(joinCalls.get() == 1, "mismatched invitation makes no relay request");
             }
         } finally { relay.stop(0); }
     }
@@ -121,10 +237,12 @@ public final class DesktopClientTest {
         Files.createDirectories(root.resolve("web/neoforge/dist"));
         Files.writeString(root.resolve("web/neoforge/dist/index.html"), "test UI");
         localBoundaryAndPersistence(root, root.resolve("profile"));
+        relayOptionsPrecedence(root);
+        relaySettings(root, root.resolve("settings-profile"));
         stubRelay(root, root.resolve("stub"));
         boolean rejected = false;
         try { DesktopClient.origin("http://public.example", true); } catch (IllegalArgumentException e) { rejected = true; }
         check(rejected, "dev cannot use public HTTP relay");
-        System.out.println("DesktopClientTest passed local HTTP boundaries, profile persistence, and stub relay lost-ack behavior; no real engine test");
+        System.out.println("DesktopClientTest passed local HTTP boundaries, relay settings, profile persistence, and stub relay lost-ack behavior; no real engine test");
     }
 }

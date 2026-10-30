@@ -51,6 +51,19 @@ Two source explorations compared these designs. Their cross-judge selected the s
 
 The protocol and architecture comparison block implementation. Relay, Java client, and native packaging have separate owners and worktrees. The host owns engine mutation, the relay owns room and message records, and the browser owns only user edits. The lead owns frontend integration, specification changes, and combined checks. This avoids shared file writes while preserving one owner for each stateful boundary.
 
+## HTTPS relay deployment follow-up
+
+The next slice prepares one operator deployment on top of the saved relay settings change. Caddy terminates HTTPS and stores certificates in a persistent volume. The Python relay listens only on a private container network. The operator supplies the DNS name and host.
+
+The relay resolves client identity through one immutable policy. Direct mode uses the TCP peer and ignores forwarding headers. Trusted mode accepts one configured proxy peer and one literal client IP that Caddy overwrites from its socket peer. The relay retains room and creation quotas. Players behind the same public IP share those quotas.
+
+| Deployment design | Consequence | Decision |
+| --- | --- | --- |
+| Caddy and private relay with a trusted peer | Automatic certificate renewal and existing quotas by client IP. | Selected. |
+| nginx with aggregate relay quotas | Avoids proxy identity but collapses all players into the four-room source quota. | Rejected. |
+
+The deployment checks use verified local TLS and the actual Compose configuration. They cover authority rejection, client identity, protocol round trips, action waits, restart invalidation, and credential-safe logs. The operator probe checks a supplied HTTPS origin without disabling certificate verification. These checks prepare deployment. Public DNS, certificate issuance, and a game between separate networks remain release gates.
+
 ## Acceptance and release status
 
 Implementation and verification results belong in `player-hosted-status.md`. The current published Site and previous hosted-engine code are earlier prototypes. This plan supersedes their installation-free goal. Public relay deployment, separate-network play, unsigned Windows distribution warnings, and native Windows launch must be reported explicitly. No paid hosting or code-signing purchase is authorized by this plan.

@@ -16,6 +16,18 @@ The [settings probe](verification/relay-settings-linux.json) records a clean Lin
 
 The same package passed native launcher, settings save/reset/clear, CPU-game settings lock, and real-engine concession checks without external runtime tools on PATH. The native socket suite passed launch override precedence, malformed saved-file recovery, broken saved-file links, persistence failures, and host and guest settings locks. Existing hosted browser regressions passed. Two independent initial reviewers found configuration-precedence, broken-file-link, and save-result presentation defects. Both correction reviews passed after the fixes. This follow-up's Windows settings checks are defined in the native workflow but have not yet been observed in Windows CI.
 
+## HTTPS relay deployment follow-up
+
+The trusted-proxy boundary passes 13 real HTTP tests. Direct mode ignores forwarding headers. Trusted mode accepts one exact proxy peer and one normalized literal client IP. Duplicate, missing, malformed, and scoped claims fail closed. Canonically equivalent IPv6 claims share the same room quota.
+
+The [local HTTPS report](verification/relay-https-local.json) records the integrated Compose bundle at `07f3fb251b70cf64fcd698499894cd56e61056cb`. Nine checks passed through verified local TLS. They cover untrusted certificates and wrong hostnames, exact Host and Origin rejection, protocol exchange, overwritten identity claims and source quotas, the real eight-second action timeout with retained delivery, an unpublished private backend, capability and snapshot log canaries, and restart invalidation.
+
+The smoke uses the production services with a local certificate and a loopback port override. It does not exercise public certificate issuance or renewal. The proxy restart reuses that supplied certificate. Persistent certificate volumes are configured, but their ACME lifecycle remains a deployment check. No real Forge game was run through this HTTPS bundle.
+
+Two independent reviewers passed identity/protocol boundaries and deployment/probe behavior. Additional HTTPS servers confirmed redirect refusal without body leakage and safe failure at the 45-second deadline despite continuously arriving headers.
+
+Public hosting, DNS, public certificate issuance, and separate-network play remain unverified. The new CI workflow runs the same smoke; its remote result has not yet been observed.
+
 ## Independent verification
 
 Exactly two initial independent verifiers covered engine and relay boundaries, then browser and packaging behavior. They found a Join dialog event-routing defect and a closed-room capacity leak. Both corrections passed an independent fix-forward round with two reviewers. A separate loopback probe confirmed that closing a room wakes a pending guest action with HTTP 410, releases capacity, and revokes its credentials. The installed-browser reviewer confirmed the corrected dialog forwards exactly one native relay request and displays a relay rejection without losing the form.

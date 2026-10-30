@@ -1,0 +1,33 @@
+{
+	admin off
+	log {
+		output discard
+	}
+	servers {
+		max_header_size 32KB
+		timeouts {
+			read_header 5s
+			read_body 10s
+			write 15s
+			idle 30s
+		}
+	}
+}
+
+https://{$RELAY_DOMAIN} {
+	request_body {
+		max_size 1MiB
+	}
+	reverse_proxy relay:8080 {
+		header_up Host {http.request.hostport}
+		header_up X-Relay-Client-IP {http.request.remote.host}
+		transport http {
+			dial_timeout 3s
+			response_header_timeout 10s
+		}
+	}
+}
+
+https:// {
+	respond 403
+}
